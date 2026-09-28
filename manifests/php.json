@@ -1,0 +1,261 @@
+{
+  "schema": 1,
+  "name": "php",
+  "builds": [
+    {
+      "version": "8.3.32",
+      "channel": "8.3",
+      "os": "windows",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://windows.php.net/downloads/releases/archives/php-8.3.32-nts-Win32-vs16-x64.zip",
+          "sha256": "67c724e7b675b50d8f0476d816c3e2a3064ce3a53d572575d63c321cc0a3a6cf",
+          "archive": "zip"
+        }
+      ]
+    },
+    {
+      "version": "8.4.23",
+      "channel": "8.4",
+      "os": "windows",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://windows.php.net/downloads/releases/archives/php-8.4.23-nts-Win32-vs17-x64.zip",
+          "sha256": "826efa189b21f46314ad497ff31467de9f0953292f42b235542be4feea182b48",
+          "archive": "zip"
+        }
+      ]
+    },
+    {
+      "version": "8.5.8",
+      "channel": "8.5",
+      "os": "windows",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://windows.php.net/downloads/releases/archives/php-8.5.8-nts-Win32-vs17-x64.zip",
+          "sha256": "63a3f6493f37c9ff3e288ec16621222a6cda5167dd1abffec0019e7f18c8e7e9",
+          "archive": "zip"
+        }
+      ]
+    },
+    {
+      "version": "8.3.31",
+      "channel": "8.3",
+      "os": "linux",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.3.31-cli-linux-x86_64.tar.gz",
+          "sha256": "4f340f035846d47d5c0eddd2064d360aa25fb29e81e1d369a644440a55c500b8",
+          "archive": "tar.gz"
+        },
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.3.31-fpm-linux-x86_64.tar.gz",
+          "sha256": "2f8d095e6c7e438e3a12402b71ada46eeada1b53a28aec6ec78aa1bebdb7010d",
+          "archive": "tar.gz"
+        }
+      ]
+    },
+    {
+      "version": "8.3.31",
+      "channel": "8.3",
+      "os": "linux",
+      "arch": "arm64",
+      "downloads": [
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.3.31-cli-linux-aarch64.tar.gz",
+          "sha256": "1d9ee14a9278636d9814a6df44f978231e2d0e33ecb1d3bab22577c0dddb0d98",
+          "archive": "tar.gz"
+        },
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.3.31-fpm-linux-aarch64.tar.gz",
+          "sha256": "fd85a2eaa85e4fc2f4cf333a89e509d571e47372395d8f99f98618409b540704",
+          "archive": "tar.gz"
+        }
+      ]
+    },
+    {
+      "version": "8.3.31",
+      "channel": "8.3",
+      "os": "darwin",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.3.31-cli-macos-x86_64.tar.gz",
+          "sha256": "333e0b35f4b659c4cccbeb35d30b9971571af8b1c06ef63273ac85889897bd8c",
+          "archive": "tar.gz"
+        },
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.3.31-fpm-macos-x86_64.tar.gz",
+          "sha256": "bbf80d056bf68660171993e9ee4ce119ff9406ffedf3967ccdf872a9924bd32b",
+          "archive": "tar.gz"
+        }
+      ]
+    },
+    {
+      "version": "8.3.31",
+      "channel": "8.3",
+      "os": "darwin",
+      "arch": "arm64",
+      "downloads": [
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.3.31-cli-macos-aarch64.tar.gz",
+          "sha256": "496d7c4610eb5fad6a98d1ef5121c794d7ac4805b9a553f16979b3287042b75f",
+          "archive": "tar.gz"
+        },
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.3.31-fpm-macos-aarch64.tar.gz",
+          "sha256": "c6ce19050b881065162e7a23abbe53fd6d20158e06d67aed3f0ca5b93e419ec7",
+          "archive": "tar.gz"
+        }
+      ]
+    },
+    {
+      "version": "8.4.22",
+      "channel": "8.4",
+      "os": "linux",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.4.22-cli-linux-x86_64.tar.gz",
+          "sha256": "71aeb77af3f7c41edbdaf9af32bbba6569a1db0f3767d83b184bcef13323ca43",
+          "archive": "tar.gz"
+        },
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.4.22-fpm-linux-x86_64.tar.gz",
+          "sha256": "d78a3d010e6b3da4d7dbcc30f928c417dd84f5ffa2f7e47c6ac37fa7e7c5ad1c",
+          "archive": "tar.gz"
+        }
+      ]
+    },
+    {
+      "version": "8.4.22",
+      "channel": "8.4",
+      "os": "linux",
+      "arch": "arm64",
+      "downloads": [
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.4.22-cli-linux-aarch64.tar.gz",
+          "sha256": "1af0601fb87dee3e238dacba955dd496457dbf12b269acf61d240d54aee56944",
+          "archive": "tar.gz"
+        },
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.4.22-fpm-linux-aarch64.tar.gz",
+          "sha256": "390af6e6c0f926e248835fe72ef3a43c6542343f309c248446f0aebe0d8e9906",
+          "archive": "tar.gz"
+        }
+      ]
+    },
+    {
+      "version": "8.4.22",
+      "channel": "8.4",
+      "os": "darwin",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.4.22-cli-macos-x86_64.tar.gz",
+          "sha256": "8b1a93510c92bf0dea8a725d5bc260727552cfc435f49527a87d6d0f1cfbb312",
+          "archive": "tar.gz"
+        },
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.4.22-fpm-macos-x86_64.tar.gz",
+          "sha256": "87f73c31e726606ef85f9602262b3b63423bab93e042d7388606f3bfe1e8bdcc",
+          "archive": "tar.gz"
+        }
+      ]
+    },
+    {
+      "version": "8.4.22",
+      "channel": "8.4",
+      "os": "darwin",
+      "arch": "arm64",
+      "downloads": [
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.4.22-cli-macos-aarch64.tar.gz",
+          "sha256": "ea3d4e63f6690093dc4b411f15c780937bfbf896d33e8771248496bc68b722a0",
+          "archive": "tar.gz"
+        },
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.4.22-fpm-macos-aarch64.tar.gz",
+          "sha256": "39d24aefb0a8a089cf0c6133a85d8502ddf165dc45316e217498fc19f7ead5bd",
+          "archive": "tar.gz"
+        }
+      ]
+    },
+    {
+      "version": "8.5.7",
+      "channel": "8.5",
+      "os": "linux",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.5.7-cli-linux-x86_64.tar.gz",
+          "sha256": "b0be08a73577b078bacb7f2217a51b7d3d193ed8a195ede5d46aff540968ee4d",
+          "archive": "tar.gz"
+        },
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.5.7-fpm-linux-x86_64.tar.gz",
+          "sha256": "c078a30be0dbaf339aba080faf29db67cc680967fc433a6fc61d16c830701164",
+          "archive": "tar.gz"
+        }
+      ]
+    },
+    {
+      "version": "8.5.7",
+      "channel": "8.5",
+      "os": "linux",
+      "arch": "arm64",
+      "downloads": [
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.5.7-cli-linux-aarch64.tar.gz",
+          "sha256": "deabcf74318b178531729c1cd1f238c47c107ba507d4de5cc8b20fcb140b2bb9",
+          "archive": "tar.gz"
+        },
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.5.7-fpm-linux-aarch64.tar.gz",
+          "sha256": "48ed954a13817640a40242fdb96378f8cb0ae51d19039bbf1e2edd027aaf5266",
+          "archive": "tar.gz"
+        }
+      ]
+    },
+    {
+      "version": "8.5.7",
+      "channel": "8.5",
+      "os": "darwin",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.5.7-cli-macos-x86_64.tar.gz",
+          "sha256": "87e66c81eb0e41dc1a3d750af35f25ce12092bd6b13efcbcab2b3caf6c911183",
+          "archive": "tar.gz"
+        },
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.5.7-fpm-macos-x86_64.tar.gz",
+          "sha256": "50961b1c85c3e502c1b25718f156b6720d584f933d21262af2509ffc04e19103",
+          "archive": "tar.gz"
+        }
+      ]
+    },
+    {
+      "version": "8.5.7",
+      "channel": "8.5",
+      "os": "darwin",
+      "arch": "arm64",
+      "downloads": [
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.5.7-cli-macos-aarch64.tar.gz",
+          "sha256": "537ee83f614e6a213a6fddf7f467109b6491b1aed0f75e3d0139170508f66226",
+          "archive": "tar.gz"
+        },
+        {
+          "url": "https://dl.static-php.dev/static-php-cli/common/php-8.5.7-fpm-macos-aarch64.tar.gz",
+          "sha256": "77182da02edcc761c94ebdf21e06c89adf5200fa255ab90356b6d06c51a64ee2",
+          "archive": "tar.gz"
+        }
+      ]
+    }
+  ]
+}

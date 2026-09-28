@@ -1,0 +1,17 @@
+{
+  "app": {
+    "windows": [
+      {
+        "title": "Bench",
+        "width": 1120,
+        "height": 760,
+        "minWidth": 760,
+        "minHeight": 520,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 18, "y": 17 },
+        "visible": false
+      }
+    ]
+  }
+}

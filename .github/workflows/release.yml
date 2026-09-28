@@ -1,0 +1,190 @@
+name: release
+
+# A v* tag builds the Go binaries (goreleaser) into a draft GitHub release,
+# then each OS builds its installer with those binaries bundled as Tauri
+# sidecars. The installer jobs have a read-only token; a separate publish
+# job, which runs no build code, attaches the installers to the draft. A
+# maintainer reviews and publishes it.
+#
+# Signing is wired but dormant: installers ship unsigned until the
+# APPLE_* / WINDOWS_CERTIFICATE secrets exist (see signing-tauri-apps).
+# Secrets are handed only to the steps that use them.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  binaries:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the draft release
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # changelog needs history
+          persist-credentials: false
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: daemon/go.mod
+          cache-dependency-path: daemon/go.sum
+
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  installers:
+    needs: binaries
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            goos: windows
+            goarch: amd64
+          - os: ubuntu-22.04 # oldest glibc we support, so the AppImage runs widely
+            target: x86_64-unknown-linux-gnu
+            goos: linux
+            goarch: amd64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            goos: darwin
+            goarch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: daemon/go.mod
+          cache-dependency-path: daemon/go.sum
+
+      - name: Build sidecars
+        shell: bash
+        working-directory: daemon
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          TARGET: ${{ matrix.target }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          ext=""; [ "$GOOS" = windows ] && ext=".exe"
+          mkdir -p ../app/src-tauri/binaries
+          for bin in benchd bench bench-helper; do
+            go build -trimpath -ldflags "-s -w -X github.com/d3v0psdan/bench/daemon/internal/version.Version=${TAG#v}" \
+              -o "../app/src-tauri/binaries/${bin}-${TARGET}${ext}" "./cmd/${bin}"
+          done
+
+      - name: Stamp the installer version from the tag
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          # MSI versions are numeric only (no -beta.1 suffix).
+          printf '{"version":"%s","bundle":{"windows":{"wix":{"version":"%s"}}}}\n' "$version" "${version%%-*}" \
+            > app/src-tauri/tauri.version.conf.json
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+
+      - name: Install Tauri Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Import Windows signing certificate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE) { Write-Host "No Windows certificate: installers stay unsigned."; exit 0 }
+          [IO.File]::WriteAllBytes("certificate.pfx", [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $pfx = Import-PfxCertificate -FilePath certificate.pfx -CertStoreLocation Cert:\CurrentUser\My `
+            -Password (ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force)
+          Remove-Item certificate.pfx
+          # Tauri signs with this thumbprint via a config overlay.
+          '{"bundle":{"windows":{"certificateThumbprint":"' + $pfx.Thumbprint + '","timestampUrl":"http://timestamp.digicert.com"}}}' |
+            Set-Content app/src-tauri/tauri.signing.conf.json
+
+      - name: Install dependencies
+        working-directory: app
+        run: bun install --frozen-lockfile
+
+      - name: Build installers
+        working-directory: app
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          configs=(--config src-tauri/tauri.release.conf.json --config src-tauri/tauri.version.conf.json)
+          [ -f src-tauri/tauri.signing.conf.json ] && configs+=(--config src-tauri/tauri.signing.conf.json)
+          # Unset empty Apple inputs: Tauri treats a set-but-empty
+          # APPLE_CERTIFICATE as "sign", and fails.
+          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            [ -z "${!v}" ] && unset "$v"
+          done
+          bun run tauri build --target "$TARGET" "${configs[@]}"
+
+      - name: Collect installers
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          shopt -s nullglob
+          mkdir -p installers
+          files=(app/src-tauri/target/"$TARGET"/release/bundle/{msi/*.msi,nsis/*.exe,dmg/*.dmg,deb/*.deb,rpm/*.rpm,appimage/*.AppImage})
+          [ ${#files[@]} -gt 0 ] || { echo "no installers built"; exit 1; }
+          cp "${files[@]}" installers/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: installers-${{ matrix.target }}
+          path: installers/
+          if-no-files-found: error
+
+  publish:
+    needs: installers
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # attach installers to the draft release
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: installers-*
+          path: installers
+          merge-multiple: true
+
+      - name: Attach installers to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" installers/* --clobber --repo "$GITHUB_REPOSITORY"

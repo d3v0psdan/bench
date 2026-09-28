@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1024" height="1024">
+  <!-- Source of every app icon (bunx tauri icon src-tauri/icons/icon.svg); the same mark as BenchMark in app-header.tsx. -->
+  <rect width="24" height="24" rx="6" fill="#111113"/>
+  <rect x="5" y="7.5" width="14" height="2.75" rx="1" fill="#ffffff"/>
+  <rect x="7" y="11.5" width="2.25" height="5.5" rx="0.75" fill="#ffffff"/>
+  <rect x="14.75" y="11.5" width="2.25" height="5.5" rx="0.75" fill="#ffffff"/>
+</svg>

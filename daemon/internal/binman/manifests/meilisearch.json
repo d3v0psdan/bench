@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "name": "meilisearch",
+  "builds": [
+    {
+      "version": "1.54.0",
+      "channel": "1",
+      "os": "windows",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://github.com/meilisearch/meilisearch/releases/download/v1.54.0/meilisearch-windows-amd64.exe",
+          "sha256": "1a3a3f2fa249b2a471eca479d37b1d3bbb9bda1aacae3eaf7839218105810125",
+          "archive": "raw",
+          "file": "meilisearch.exe"
+        }
+      ]
+    },
+    {
+      "version": "1.54.0",
+      "channel": "1",
+      "os": "linux",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://github.com/meilisearch/meilisearch/releases/download/v1.54.0/meilisearch-linux-amd64",
+          "sha256": "4c039396c19436c248d3429935559c990f6606d4ada781e7079325f32bbb7a3c",
+          "archive": "raw",
+          "file": "meilisearch"
+        }
+      ]
+    },
+    {
+      "version": "1.54.0",
+      "channel": "1",
+      "os": "linux",
+      "arch": "arm64",
+      "downloads": [
+        {
+          "url": "https://github.com/meilisearch/meilisearch/releases/download/v1.54.0/meilisearch-linux-aarch64",
+          "sha256": "b7817c408620383b56e5b516df5bcf55ed1267dc755cadb79e6f97038fcded7c",
+          "archive": "raw",
+          "file": "meilisearch"
+        }
+      ]
+    },
+    {
+      "version": "1.54.0",
+      "channel": "1",
+      "os": "darwin",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://github.com/meilisearch/meilisearch/releases/download/v1.54.0/meilisearch-macos-amd64",
+          "sha256": "89cbe6398fbca37e9026422cd9deb2a7deecb56bf5a18b8d8fd8e78e699743c7",
+          "archive": "raw",
+          "file": "meilisearch"
+        }
+      ]
+    },
+    {
+      "version": "1.54.0",
+      "channel": "1",
+      "os": "darwin",
+      "arch": "arm64",
+      "downloads": [
+        {
+          "url": "https://github.com/meilisearch/meilisearch/releases/download/v1.54.0/meilisearch-macos-apple-silicon",
+          "sha256": "69756fa543a02c560c870f704fe7b0e6a3ce62747afb1cc6906c1387b7b42637",
+          "archive": "raw",
+          "file": "meilisearch"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+# Go
+daemon/bin/
+*.exe
+*.test
+*.out
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+
+# Tauri / Rust
+app/src-tauri/target/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+*.local
+
+# Local backups of replaced files (kept on disk, never committed)
+*.bak

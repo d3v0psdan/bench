@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# Go binaries (benchd daemon, bench CLI, bench-helper) for every platform.
+# The desktop installers are built by .github/workflows/release.yml, which
+# bundles these same binaries as Tauri sidecars.
+version: 2
+project_name: bench
+
+before:
+  hooks:
+    - sh -c "cd daemon && go mod download"
+
+builds:
+  - &gobuild
+    id: benchd
+    dir: daemon
+    main: ./cmd/benchd
+    binary: benchd
+    env: [CGO_ENABLED=0]
+    goos: [windows, linux, darwin]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64 # no Windows arm64 service builds upstream yet
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/d3v0psdan/bench/daemon/internal/version.Version={{ .Version }}
+  - <<: *gobuild
+    id: bench
+    main: ./cmd/bench
+    binary: bench
+  - <<: *gobuild
+    id: bench-helper
+    main: ./cmd/bench-helper
+    binary: bench-helper
+
+archives:
+  - ids: [benchd, bench, bench-helper]
+    name_template: "bench_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [LICENSE, README.md]
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+release:
+  # Drafts: the installer jobs attach their bundles, then a maintainer
+  # publishes. Pre-1.0 tags are marked prerelease.
+  draft: true
+  prerelease: auto
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"

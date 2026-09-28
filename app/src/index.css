@@ -1,0 +1,260 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/geist-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --color-sheet: var(--sheet);
+    --color-well: var(--well);
+    --color-subtle: var(--subtle);
+    --color-brand: var(--brand);
+    --color-brand-hover: var(--brand-hover);
+    --color-brand-foreground: var(--brand-foreground);
+    --color-success: var(--success);
+    --color-success-solid: var(--success-solid);
+    --color-warning: var(--warning);
+    --color-warning-solid: var(--warning-solid);
+    --color-destructive-solid: var(--destructive-solid);
+    --color-pill: var(--pill);
+    --color-pill-foreground: var(--pill-foreground);
+    --color-pill-muted: var(--pill-muted);
+    --color-grid-dot: var(--grid-dot);
+    --shadow-xs: var(--shadow-xs);
+    --shadow-card: var(--shadow-card);
+    --shadow-button: var(--shadow-button);
+    --shadow-brand: var(--shadow-brand);
+    --shadow-popover: var(--shadow-popover);
+    --shadow-dialog: var(--shadow-dialog);
+    --radius-sm: calc(var(--radius) * 0.5);
+    --radius-md: calc(var(--radius) * 0.75);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.25);
+    --radius-2xl: calc(var(--radius) * 1.5);
+    --radius-3xl: calc(var(--radius) * 2);
+    --radius-4xl: calc(var(--radius) * 2.5);
+}
+
+:root {
+    --radius: 0.5rem;
+    /* the window's corners: concentric with the page card, which is
+       rounded-lg and inset 6px (1.5 spacing) from the window edge */
+    --window-radius: calc(var(--radius) + 6px);
+    --window-edge: var(--border);
+    /* chrome behind the sheet */
+    --background: #ffffff;
+    /* the inset panel every page sits on */
+    --sheet: #fcfcfd;
+    /* recessed surfaces: section-card frames, canvas, code wells */
+    --well: #f9f9fb;
+    /* hover and selection fills */
+    --subtle: #f0f0f3;
+    --foreground: #1c2024;
+    --card: #ffffff;
+    --card-foreground: #1c2024;
+    --popover: #ffffff;
+    --popover-foreground: #1c2024;
+    --primary: #111113;
+    --primary-foreground: #ffffff;
+    --secondary: #f0f0f3;
+    --secondary-foreground: #1c2024;
+    --muted: #f0f0f3;
+    --muted-foreground: #60646c;
+    --accent: #f0f0f3;
+    --accent-foreground: #1c2024;
+    --brand: #006aff;
+    --brand-hover: #005cec;
+    --brand-foreground: #ffffff;
+    --success: #208368;
+    --success-solid: #29a383;
+    --warning: #ab6400;
+    --warning-solid: #ffc53d;
+    --destructive: #ca244d;
+    --destructive-solid: #e54666;
+    --border: #e0e1e6;
+    --input: #cdced6;
+    --ring: #0060f0;
+    --pill: #111113;
+    --pill-foreground: #ffffff;
+    --pill-muted: #b0b4ba;
+    --grid-dot: #d9d9e0;
+    --chart-1: #006aff;
+    --chart-2: #29a383;
+    --chart-3: #ffc53d;
+    --chart-4: #e54666;
+    --chart-5: #8b8d98;
+    --sidebar: var(--background); /* part of the window chrome, like the header */
+    --sidebar-foreground: #1c2024;
+    --sidebar-primary: #111113;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #f0f0f3;
+    --sidebar-accent-foreground: #1c2024;
+    --sidebar-border: #e0e1e6;
+    --sidebar-ring: #71a8ff;
+
+    --shadow-xs: 0 0 1px 0 #00000008, 0 1px 2px 0 #0000000f;
+    --shadow-card: 0 0 0 1px #00000022, 0 0 1px 0 #00000008, 0 1px 2px 0 #0000000f;
+    --shadow-button: 0 0 0 1px #1a1a1a29, 0 0 1px 0 #0000000f, 0 1px 2px 0 #0000001f;
+    --shadow-brand: 0 0 0 1px #005cec, 0 1px 3px 0 #0000001a, 0 1px 2px 0 #0000000f;
+    --shadow-popover: 0 0 0 1px #01213929, 0 20px 8px 0 #00000003, 0 11px 7px 0 #0000000d,
+        0 5px 5px 0 #00000017, 0 1px 3px 0 #0000001a;
+    /* the dialog's double bezel: hairline, a frosted 6px band, a faint edge */
+    --shadow-dialog: 0 0 0 1px #00000024, 0 0 0 7px #ffffff8c, 0 0 0 8px #0000000f,
+        0 24px 48px -12px #00000029;
+}
+
+.dark {
+    --background: #111113;
+    --sheet: #18191b;
+    --well: #111113;
+    --subtle: #272a2d;
+    --foreground: #edeef0;
+    --card: #212225;
+    --card-foreground: #edeef0;
+    --popover: #212225;
+    --popover-foreground: #edeef0;
+    --primary: #edeef0;
+    --primary-foreground: #111113;
+    --secondary: #272a2d;
+    --secondary-foreground: #edeef0;
+    --muted: #272a2d;
+    --muted-foreground: #b0b4ba;
+    --accent: #272a2d;
+    --accent-foreground: #edeef0;
+    --brand: #006aff;
+    --brand-hover: #005bef;
+    --brand-foreground: #ffffff;
+    --success: #1fd8a4;
+    --success-solid: #29a383;
+    --warning: #ffca16;
+    --warning-solid: #ffc53d;
+    --destructive: #ff949d;
+    --destructive-solid: #e54666;
+    --border: #2e3135;
+    --input: #43484e;
+    --ring: #83b7ff;
+    --pill: #272a2d;
+    --pill-foreground: #edeef0;
+    --pill-muted: #b0b4ba;
+    --grid-dot: #2e3135;
+    --chart-1: #006aff;
+    --chart-2: #29a383;
+    --chart-3: #ffc53d;
+    --chart-4: #e54666;
+    --chart-5: #696e77;
+    --sidebar: var(--background);
+    --sidebar-foreground: #edeef0;
+    --sidebar-primary: #006aff;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #272a2d;
+    --sidebar-accent-foreground: #edeef0;
+    --sidebar-border: #2e3135;
+    --sidebar-ring: #225ec3;
+
+    --shadow-xs: 0 0 1px 0 #00000040, 0 1px 2px 0 #0000004d;
+    --shadow-card: 0 0 0 1px #d9edff1f, 0 0 1px 0 #00000040, 0 1px 2px 0 #0000004d;
+    --shadow-button: 0 0 0 1px #d9edff29, 0 0 1px 0 #00000040, 0 1px 2px 0 #00000066;
+    --shadow-brand: 0 0 0 1px #2878ffbf, 0 1px 3px 0 #0000004d, 0 1px 2px 0 #00000040;
+    --shadow-popover: 0 0 0 1px #d9edff29, 0 11px 7px 0 #0000004d, 0 5px 5px 0 #00000066,
+        0 1px 3px 0 #00000080;
+    --shadow-dialog: 0 0 0 1px #d9edff29, 0 0 0 7px #ffffff0f, 0 0 0 8px #0000004d,
+        0 24px 48px -12px #00000099;
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+    html {
+        @apply font-sans;
+        /* Inter alternates: open digits and a single-storey a */
+        font-feature-settings: "cv01" 1, "cv02" 1, "cv03" 1, "cv04" 1, "cv11" 1, "calt" 0;
+        color-scheme: light;
+    }
+    html.dark {
+        color-scheme: dark;
+    }
+    /* The window is transparent and frameless (tauri.conf.json), so body is
+       the window: rounded, edged, and a clip for everything inside,
+       fixed layers included (contain: paint). html stays transparent so
+       body's background doesn't spread to the square canvas behind it.
+       Maximized windows sit square against the screen edge. */
+    html {
+        background: transparent;
+    }
+    body {
+        @apply bg-background text-foreground antialiased;
+        overflow: hidden;
+        height: 100vh;
+        border-radius: var(--window-radius);
+        contain: paint;
+    }
+    body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        border: 1px solid var(--window-edge);
+        border-radius: inherit;
+        pointer-events: none;
+    }
+    html[data-maximized] body {
+        border-radius: 0;
+    }
+    html[data-maximized] body::after {
+        display: none;
+    }
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--input) transparent;
+    }
+}
+
+@utility bg-dot-grid {
+    background-color: var(--well);
+    background-image: radial-gradient(circle, var(--grid-dot) 1px, transparent 1.2px);
+    background-size: 18px 18px;
+    background-position: 9px 9px;
+}
+
+/* A faint brand wash from the top-right corner, like the tinted corners on
+   laravel.com's feature blocks. Decorative: it sits under the content. */
+@utility bg-brand-glow {
+    background-image: radial-gradient(70% 140% at 100% 0%, color-mix(in oklab, var(--brand) 9%, transparent), transparent 70%);
+}

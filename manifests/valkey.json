@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "name": "valkey",
+  "builds": [
+    {
+      "version": "9.1.2",
+      "channel": "9.1",
+      "os": "windows",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://github.com/valkey-windows/valkey-windows/releases/download/9.1.2/Valkey-9.1.2-Windows-x64-msys2.zip",
+          "sha256": "3374b5e26d9972b68ef9ab26b08e318d492b50c739f8ac15a087a74e0c678093",
+          "archive": "zip",
+          "strip": 1
+        }
+      ]
+    },
+    {
+      "version": "9.1.2",
+      "channel": "9.1",
+      "os": "linux",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://download.valkey.io/releases/valkey-9.1.2-jammy-x86_64.tar.gz",
+          "sha256": "33687af7a5457459a16c207a9c1971fc70f67e6ec1f011a876094b790741bd63",
+          "archive": "tar.gz",
+          "strip": 1
+        }
+      ]
+    },
+    {
+      "version": "9.1.2",
+      "channel": "9.1",
+      "os": "linux",
+      "arch": "arm64",
+      "downloads": [
+        {
+          "url": "https://download.valkey.io/releases/valkey-9.1.2-jammy-arm64.tar.gz",
+          "sha256": "a3dcac64815b2ed907b3942343ba51f34877de2d58e809435226f6b03686a5a1",
+          "archive": "tar.gz",
+          "strip": 1
+        }
+      ]
+    }
+  ]
+}

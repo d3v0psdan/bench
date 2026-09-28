@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "name": "rustfs",
+  "builds": [
+    {
+      "version": "1.0.0",
+      "channel": "1",
+      "os": "windows",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://github.com/rustfs/rustfs/releases/download/1.0.0/rustfs-windows-x86_64-v1.0.0.zip",
+          "sha256": "4ccf5858ce8e6f70f01af2394c8cc0e0878ee77faa6c20d3179153476554b7d8",
+          "archive": "zip"
+        }
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "channel": "1",
+      "os": "linux",
+      "arch": "amd64",
+      "downloads": [
+        {
+          "url": "https://github.com/rustfs/rustfs/releases/download/1.0.0/rustfs-linux-x86_64-gnu-v1.0.0.zip",
+          "sha256": "2d5059501745682664c3d345b22274b66079c952fbec7e1ce66980ef4515cd42",
+          "archive": "zip"
+        }
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "channel": "1",
+      "os": "linux",
+      "arch": "arm64",
+      "downloads": [
+        {
+          "url": "https://github.com/rustfs/rustfs/releases/download/1.0.0/rustfs-linux-aarch64-gnu-v1.0.0.zip",
+          "sha256": "780e832d68e0148dc042f05647796056fe014e7cf1a8f195e3e83b22a3bb988f",
+          "archive": "zip"
+        }
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "channel": "1",
+      "os": "darwin",
+      "arch": "arm64",
+      "downloads": [
+        {
+          "url": "https://github.com/rustfs/rustfs/releases/download/1.0.0/rustfs-macos-aarch64-v1.0.0.zip",
+          "sha256": "06e32a681c16930fb5414df64c96151fe3370321fab0403a83a83a015874c39a",
+          "archive": "zip"
+        }
+      ]
+    }
+  ]
+}

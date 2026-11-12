@@ -92,6 +92,23 @@ const CHECKS: Check[] = [
     ],
   },
   {
+    rule: "V8",
+    // A fixed grid must define its columns (grid-cols-*): an implicit auto column grows to the longest unbroken text.
+    // Numeric grid-cols-N is repeat(N, minmax(0, 1fr)), which can shrink.
+    // shortcut: an arbitrary template such as grid-cols-[auto] passes and can still overflow, parse the template if an overlay ever uses one.
+    applies: isTsx,
+    run: (src) => {
+      const out: Array<[number, string]> = [];
+      const re = /"([^"\n]*)"/g;
+      for (let m = re.exec(src); m; m = re.exec(src)) {
+        const classes = m[1].split(/\s+/);
+        if (classes.includes("fixed") && classes.includes("grid") && !classes.some((c) => c.startsWith("grid-cols-")))
+          out.push([lineOf(src, m.index), "a fixed grid must define its columns (grid-cols-*): an implicit auto column lets long unbroken text widen it"]);
+      }
+      return out;
+    },
+  },
+  {
     rule: "W3",
     applies: isCode,
     run: (src) => matches(src, /\u2014/, () => "em-dash: rewrite with a comma, colon or parentheses"),

@@ -28,7 +28,10 @@ export function LinkStep({
   return (
     <Question title="Which project?">
       <div className="flex items-center gap-2 rounded-lg bg-well p-3">
-        <span className={cn("min-w-0 flex-1 truncate font-mono text-xs", !path && "text-muted-foreground")}>
+        <span
+          className={cn("min-w-0 flex-1 truncate font-mono text-xs", !path && "text-muted-foreground")}
+          title={path ?? undefined}
+        >
           {path ?? "No folder chosen yet"}
         </span>
         <Button type="button" variant="outline" size="sm" onClick={() => void pick()} autoFocus={!path}>
@@ -52,7 +55,7 @@ export function LinkStep({
             <FieldError>{problem}</FieldError>
           ) : (
             <FieldDescription>
-              Serves at <span className="font-mono text-foreground">https://{host}</span>
+              Serves at <span className="font-mono break-words text-foreground">https://{host}</span>
             </FieldDescription>
           )}
         </Field>
@@ -96,7 +99,7 @@ export function ProxyStep({
             <FieldError>{problem}</FieldError>
           ) : (
             <FieldDescription>
-              Serves at <span className="font-mono text-foreground">https://{host}</span>
+              Serves at <span className="font-mono break-words text-foreground">https://{host}</span>
             </FieldDescription>
           )}
         </Field>

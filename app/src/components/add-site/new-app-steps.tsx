@@ -38,7 +38,7 @@ export function Question({ title, tip, children }: { title: string; tip?: string
   return (
     <>
       <div className="flex items-center gap-1">
-        <h3 className="text-base font-medium">{title}</h3>
+        <h3 className="min-w-0 text-base font-medium break-words">{title}</h3>
         {tip ? <InfoTip label="More about this question">{tip}</InfoTip> : null}
       </div>
       {children}
@@ -201,10 +201,14 @@ export function NameStep({
       </Field>
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-2 rounded-lg bg-well p-3 text-[13px]">
         <dt className="text-muted-foreground">URL</dt>
-        <dd className="truncate font-mono text-xs">https://{name}.test</dd>
+        <dd className="truncate font-mono text-xs" title={`https://${name}.test`}>
+          https://{name}.test
+        </dd>
         <dt className="text-muted-foreground">Folder</dt>
         <dd className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-mono text-xs">{dir ? joinPath(dir, name) : "Loading…"}</span>
+          <span className="truncate font-mono text-xs" title={dir ? joinPath(dir, name) : undefined}>
+            {dir ? joinPath(dir, name) : "Loading…"}
+          </span>
           <Button type="button" variant="ghost" size="xs" onClick={() => void change()} className="ml-auto shrink-0">
             Change…
           </Button>
@@ -384,7 +388,10 @@ export function Review({ answers: a, dir }: { answers: NewAppAnswers; dir: strin
               )}
             >
               {k === "Stack" ? <StackLogo stack={a.stack} size="sm" /> : null}
-              <span className="truncate">{v}</span>
+              {/* Only these values carry a site name (up to 63 characters) or a service name, long enough to truncate. */}
+              <span className="truncate" title={k === "URL" || k === "Folder" || k === "Database" ? v : undefined}>
+                {v}
+              </span>
             </dd>
           </div>
         ))}

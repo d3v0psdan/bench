@@ -136,7 +136,7 @@ export function ConfirmAction({
         {confirmText !== undefined ? (
           <Field>
             <FieldLabel htmlFor={typedId}>
-              <span>
+              <span className="wrap-anywhere">
                 Type {confirmTextHint ?? <span className="font-mono">{confirmText}</span>} to confirm
               </span>
             </FieldLabel>
@@ -164,6 +164,7 @@ export function ConfirmAction({
         ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+          {/* Labels can carry a folder or service name: the button shrinks and truncates so Cancel stays whole. */}
           <AlertDialogAction
             variant={tone === "destructive" ? "destructive-solid" : "default"}
             disabled={busy || !typedMatches}
@@ -171,9 +172,10 @@ export function ConfirmAction({
               e.preventDefault(); // close only after onConfirm settles
               void runConfirmed();
             }}
+            className="min-w-0 shrink"
           >
             {busy ? <Spinner data-icon="inline-start" className="motion-reduce:animate-none" /> : confirmIcon}
-            {confirmLabel}
+            <span className="truncate">{confirmLabel}</span>
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

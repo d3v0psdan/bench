@@ -216,7 +216,11 @@ function FieldError({
     <div
       role="alert"
       data-slot="field-error"
-      className={cn("text-sm font-normal text-destructive", className)}
+      className={cn(
+        // wrap-anywhere (inherited by the list items too) keeps an unbroken name in a message inside the field.
+        "text-sm font-normal text-destructive wrap-anywhere",
+        className
+      )}
       {...props}
     >
       {content}

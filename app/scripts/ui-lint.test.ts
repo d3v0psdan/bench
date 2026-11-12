@@ -46,6 +46,12 @@ describe("ui-lint", () => {
     expect(rules("w4.tsx", `alert("hi");\n`)).toContain("W4");
   });
 
+  test("V8: a fixed grid fails without grid-cols-*, and passes with grid-cols-1 or grid-cols-2", () => {
+    expect(rules("v8.tsx", `<div className="fixed grid w-full max-w-md" />;\n`)).toContain("V8");
+    expect(rules("v8-ok.tsx", `<div className="fixed grid grid-cols-1 w-full max-w-md" />;\n`)).not.toContain("V8");
+    expect(rules("v8-ok-2.tsx", `<div className="fixed grid grid-cols-2 w-full max-w-md" />;\n`)).not.toContain("V8");
+  });
+
   test("a waiver needs a reason", () => {
     expect(rules("waived.tsx", `// ui-standard-allow V4: third-party markup we can't restyle\n<div className="space-y-2" />;\n`)).toEqual([]);
     expect(rules("unwaived.tsx", `// ui-standard-allow V4: no\n<div className="space-y-2" />;\n`)).toContain("V4");

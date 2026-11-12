@@ -348,9 +348,10 @@ function AddSiteDialog({
               Cancel
             </Button>
             {step !== "choose" ? (
-              <Button type="submit" disabled={primary.disabled || submitting}>
+              // The label holds the site name (valid up to 63 characters, longer while an invalid one is typed): let this button shrink and truncate, not push past the footer.
+              <Button type="submit" disabled={primary.disabled || submitting} className="min-w-0 shrink">
                 {submitting ? <Spinner data-icon="inline-start" className="motion-reduce:animate-none" /> : null}
-                {primary.label}
+                <span className="truncate">{primary.label}</span>
                 {primary.label === "Next" && !submitting ? <ArrowRightIcon data-icon="inline-end" /> : null}
               </Button>
             ) : null}

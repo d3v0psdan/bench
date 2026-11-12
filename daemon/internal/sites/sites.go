@@ -74,12 +74,32 @@ type Manager struct {
 
 var nameRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
 
-// NormalizeName lowercases and validates a site name (one DNS label).
+// maxNameLen is the longest DNS label (RFC 1035); <name>.test can't resolve past it.
+const maxNameLen = 63
+
+// ErrInvalidName wraps every name error from NormalizeName and
+// NormalizeLabel: the caller's input is wrong, not the daemon.
+var ErrInvalidName = errors.New("invalid site name")
+
+// NormalizeName lowercases and validates a new site name (one DNS label).
 func NormalizeName(name string) (string, error) {
+	n, err := NormalizeLabel(name)
+	if err != nil {
+		return "", err
+	}
+	if len(n) > maxNameLen {
+		return "", fmt.Errorf("%w %q: too long, use %d characters or fewer", ErrInvalidName, name, maxNameLen)
+	}
+	return n, nil
+}
+
+// NormalizeLabel is NormalizeName without the length limit, for addressing
+// a site that may have been saved before the limit existed.
+func NormalizeLabel(name string) (string, error) {
 	n := strings.ToLower(strings.TrimSpace(name))
 	n = strings.TrimSuffix(n, ".test")
 	if !nameRe.MatchString(n) {
-		return "", fmt.Errorf("invalid site name %q: use letters, digits and hyphens", name)
+		return "", fmt.Errorf("%w %q: use letters, digits and hyphens", ErrInvalidName, name)
 	}
 	return n, nil
 }
@@ -447,7 +467,7 @@ func (m *Manager) Link(ctx context.Context, path, name string) ([]api.Site, erro
 // ignored from then on, so the parked-directory scan doesn't bring it
 // back, and its settings (PHP pin) are dropped.
 func (m *Manager) Unlink(ctx context.Context, name string) ([]api.Site, error) {
-	n, err := NormalizeName(name)
+	n, err := NormalizeLabel(name)
 	if err != nil {
 		return nil, err
 	}
@@ -471,7 +491,7 @@ func (m *Manager) Unlink(ctx context.Context, name string) ([]api.Site, error) {
 // keeps serving it by the defaults. A parked site without settings is
 // left as it is.
 func (m *Manager) ForgetParkedSettings(ctx context.Context, name string) ([]api.Site, error) {
-	n, err := NormalizeName(name)
+	n, err := NormalizeLabel(name)
 	if err != nil {
 		return nil, err
 	}
@@ -511,7 +531,7 @@ func (m *Manager) Proxy(ctx context.Context, name, target string) ([]api.Site, e
 // SetSitePHP pins (or clears with version "") a site's PHP version.
 // Parked sites get a settings-carrier row on first isolation.
 func (m *Manager) SetSitePHP(ctx context.Context, name, version string) ([]api.Site, error) {
-	n, err := NormalizeName(name)
+	n, err := NormalizeLabel(name)
 	if err != nil {
 		return nil, err
 	}
@@ -657,7 +677,7 @@ func (m *Manager) favorites() (map[string]bool, error) {
 func (m *Manager) SetFavorite(name string, favorite bool) ([]api.Site, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	n, err := NormalizeName(name)
+	n, err := NormalizeLabel(name)
 	if err != nil {
 		return nil, err
 	}

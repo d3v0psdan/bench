@@ -27,6 +27,9 @@ import (
 // AdminAddr is Caddy's admin API endpoint (loopback only).
 const AdminAddr = "127.0.0.1:2019"
 
+// ProcName is the supervisor process name of Caddy.
+const ProcName = "caddy"
+
 // Site is one routable host. Exactly one of FastCGI/ProxyTo is set:
 // FastCGI serves Root via php_fastcgi semantics against that upstream,
 // ProxyTo reverse-proxies the whole host to a local port.
@@ -103,7 +106,7 @@ func (c *Caddy) Ensure(ctx context.Context) error {
 	_ = os.Remove(filepath.Join(c.Dir(), "config", "caddy", "autosave.json"))
 
 	return c.Sup.Start(ctx, supervisor.Spec{
-		Name:    "caddy",
+		Name:    ProcName,
 		Command: filepath.Join(c.Bin.Dir("caddy", b.Version), exe),
 		Args:    []string{"run", "--config", bootstrap},
 		Env: []string{
@@ -131,7 +134,9 @@ func (c *Caddy) Ensure(ctx context.Context) error {
 }
 
 // Apply swaps the full Caddy config for the given sites via POST /load.
-// Caddy autosaves the loaded config, so --resume restores it on restart.
+// The config lasts only as long as this Caddy process: a restarted one
+// loads the empty bootstrap again (no --resume), and benchd applies the
+// sites again whenever Caddy becomes ready.
 func (c *Caddy) Apply(ctx context.Context, sites []Site) error {
 	body, err := json.Marshal(c.buildConfig(sites))
 	if err != nil {
@@ -186,7 +191,7 @@ func (c *Caddy) Stop(ctx context.Context) {
 			resp.Body.Close()
 		}
 	}
-	c.Sup.Stop("caddy")
+	c.Sup.Stop(ProcName)
 }
 
 // buildConfig produces the full Caddy JSON config document. Untyped maps:

@@ -349,9 +349,19 @@ func printSiteError(cmd *cobra.Command, list []api.Site, name string) {
 
 func argOrCwd(args []string) (string, error) {
 	if len(args) == 1 {
-		return args[0], nil
+		return absPath(args[0])
 	}
 	return os.Getwd()
+}
+
+// absPath resolves a path argument against the CLI's working directory
+// before it goes to the daemon, whose own is the Bench home. "" stays ""
+// so the daemon's default applies.
+func absPath(path string) (string, error) {
+	if path == "" {
+		return "", nil
+	}
+	return filepath.Abs(path)
 }
 
 func argOrCwdName(args []string) (string, error) {

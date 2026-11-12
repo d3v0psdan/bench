@@ -438,6 +438,16 @@ func TestLongNamesAreRejected(t *testing.T) {
 	}
 }
 
+func TestNameOver63CharactersGetsTheInstanceLimitMessage(t *testing.T) {
+	_, err := NormalizeName(strings.Repeat("a", 64))
+	if err == nil {
+		t.Fatal("NormalizeName(64 chars) should fail")
+	}
+	if msg := err.Error(); !strings.Contains(msg, "max "+strconv.Itoa(maxNameLen)) || strings.Contains(msg, "63") {
+		t.Fatalf("error %q should state the instance limit (max %d), not the site limit", msg, maxNameLen)
+	}
+}
+
 func TestBusyNameIsRefused(t *testing.T) {
 	m := newTestManager(t, fakeDriver(freePort(t)))
 	create(t, m, "db")

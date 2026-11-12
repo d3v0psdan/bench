@@ -113,6 +113,17 @@ func runSetup(ctx context.Context, cdy *caddy.Caddy, dns, trust bool) ([]string,
 	return msgs, nil
 }
 
+// onCaddyReady calls serve each time a Caddy process becomes ready, by any
+// path: boot, a restart after a crash, setup starting it. Every Caddy
+// starts from the empty bootstrap config, so each one needs the sites
+// loaded again. It can't loop: Apply's Ensure joins the running Caddy
+// without starting a new one, so it fires no second ready event.
+func onCaddyReady(st supervisor.Status, serve func()) {
+	if st.Name == caddy.ProcName && st.State == supervisor.StateRunning {
+		serve()
+	}
+}
+
 func waitForFile(ctx context.Context, path string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for {
@@ -198,6 +209,13 @@ func run(port int, log *slog.Logger) error {
 	var once sync.Once
 	requestShutdown := func() { once.Do(func() { close(shutdown) }) }
 
+	// life ends at shutdown. Background work that uses the registry runs
+	// under it through work, and shutdown waits for that work.
+	work := &lifeWork{}
+	defer work.Stop() // runs after endLife and before the registry closes
+	life, endLife := context.WithCancel(context.Background())
+	defer endLife()
+
 	srv := &server.Server{
 		Version:    version.Version,
 		Token:      tok,
@@ -213,28 +231,26 @@ func run(port int, log *slog.Logger) error {
 		Mail:       mail.Proxy(mail.FromServices(svcMgr.List)),
 		MailSave:   mail.SaveAttachment(mail.FromServices(svcMgr.List), paths.Downloads),
 	}
-	taskReg := &tasks.Registry{OnChange: func(list []api.Task) {
+	// Every task ends at shutdown, and New Laravel app and site delete run
+	// under work, so their tools are killed and shutdown waits for them.
+	taskReg := &tasks.Registry{Parent: life, OnChange: func(list []api.Task) {
 		srv.Publish(api.Event{Type: "tasks", Tasks: list})
 	}}
 	srv.Tasks = taskReg
 	svcMgr.Tasks = taskReg
-	srv.NewApp = &newapp.Creator{Root: root, Bin: binaries, Pools: pools, Sites: siteMgr, Services: svcMgr, Tasks: taskReg, Log: log}
-	srv.SiteDelete = &sitedelete.Deleter{Root: root, Sites: siteMgr, Services: svcMgr, Tasks: taskReg, Mail: mail.FromServices(svcMgr.List), Log: log}
+	srv.NewApp = &newapp.Creator{Root: root, Bin: binaries, Pools: pools, Sites: siteMgr, Services: svcMgr, Tasks: taskReg, Log: log, Go: work.Go}
+	srv.SiteDelete = &sitedelete.Deleter{Root: root, Sites: siteMgr, Services: svcMgr, Tasks: taskReg, Mail: mail.FromServices(svcMgr.List), Log: log, Go: work.Go}
 	binaries.OnProgress = func(p binman.Progress) {
 		srv.Publish(api.Event{Type: "download", Download: &p})
 		taskReg.Progress(p)
 	}
-	// life ends at shutdown. Background work that uses the registry runs
-	// under it through work, and shutdown waits for that work.
-	work := &lifeWork{}
-	defer work.Stop() // runs after endLife and before the registry closes
-	life, endLife := context.WithCancel(context.Background())
-	defer endLife()
 	// Every install (Runtimes page, CLI, New Laravel app) lands here. A new
 	// PHP can become the default (first install wins) and serve sites that
 	// had none; Apply saves the default and re-serves them. In the
 	// background, so the install task ends at once: Apply can wait on the
 	// sites lock or a Caddy download.
+	// This and the other Applies under work ignore Go's refusal: it only
+	// refuses once shutdown began, when serving sites no longer matters.
 	binaries.OnInstalled = func(b binman.Build) {
 		if b.Name != "php" {
 			return
@@ -257,11 +273,21 @@ func run(port int, log *slog.Logger) error {
 	svcMgr.OnChange = func(list []api.Service) {
 		srv.Publish(api.Event{Type: "services", Services: list})
 	}
+	// In the background: Apply waits on Ensure, which may be waiting for
+	// the very start this event reports.
+	serveSites := func() {
+		work.Go(func() {
+			if _, err := siteMgr.Apply(life); err != nil {
+				log.Warn("serving sites after caddy started failed", "err", err)
+			}
+		})
+	}
 	sup.OnEvent = func(st supervisor.Status) {
 		srv.Publish(api.Event{Type: "process", Process: &st})
 		if services.IsProcName(st.Name) {
 			svcMgr.Notify()
 		}
+		onCaddyReady(st, serveSites)
 	}
 
 	// Restore sites from the registry (exit criterion: daemon restart
@@ -303,14 +329,19 @@ func run(port int, log *slog.Logger) error {
 		return fmt.Errorf("api server: %w", err)
 	}
 
-	// Background Applies end before the processes and registry they use.
+	// Background Applies and running tasks end before the processes and
+	// registry they use. svcMgr.Close comes before work.Stop: a New Laravel
+	// app waiting on a service start returns only when Close cancels it
+	// (services.Manager.Start ignores its context).
 	endLife()
-	work.Stop()
+	svcMgr.Close() // cancel in-flight creates/clones before their processes go
+	if !work.Stop() {
+		log.Warn("background work still running at shutdown; not waiting longer")
+	}
 
 	// Children first, while the API still answers: `bench stop` polls
 	// until the API is gone, so it must not vanish while databases are
 	// still flushing (a quick `bench start` would race their ports).
-	svcMgr.Close() // cancel in-flight creates/clones before their processes go
 	sup.StopAll()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

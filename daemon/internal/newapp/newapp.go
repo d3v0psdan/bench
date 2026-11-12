@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/d3v0psdan/bench/daemon/internal/binman"
 	"github.com/d3v0psdan/bench/daemon/internal/desktop"
 	"github.com/d3v0psdan/bench/daemon/internal/phppool"
+	"github.com/d3v0psdan/bench/daemon/internal/registry"
 	"github.com/d3v0psdan/bench/daemon/internal/services"
 	"github.com/d3v0psdan/bench/daemon/internal/sites"
 	"github.com/d3v0psdan/bench/daemon/internal/supervisor"
@@ -50,6 +52,10 @@ type Creator struct {
 	Services *services.Manager
 	Tasks    *tasks.Registry
 	Log      *slog.Logger
+	// Go runs each creation in the background, reporting false when it
+	// refused (shutdown began). Required: benchd passes lifeWork.Go so
+	// shutdown waits for creations to end.
+	Go func(func()) bool
 }
 
 // ProjectsDir is where new apps go by default.
@@ -100,13 +106,62 @@ func (c *Creator) Start(ctx context.Context, r api.NewSiteRequest) (api.Task, er
 			return api.Task{}, InputError{fmt.Errorf("%s already exists", s.Host)}
 		}
 	}
+	if err := c.checkDatabase(ctx, r); err != nil {
+		return api.Task{}, err
+	}
 
 	task := c.Tasks.Begin("site.new", "Creating "+name+".test", name, true)
 	logFile := filepath.Join(c.Root, "logs", "new-"+name+".log")
 	task.SetLogFile(logFile)
 	job := &job{c: c, task: task, req: r, parent: parent, dir: target, parksParent: sameDir(parent, projects)}
-	go job.run(logFile)
+	if !c.Go(func() { job.run(logFile) }) {
+		return api.Task{}, task.End(tasks.ErrShuttingDown) // ends the task, so none is left running
+	}
 	return task.Snapshot(), nil
+}
+
+// checkDatabase refuses, before any work, a database the app can't get: a
+// new instance whose name is too long or already taken (left by an earlier
+// app), or a database of the app's name already in the chosen instance
+// when it is running. In a stopped instance that is checked once the job
+// has started it.
+func (c *Creator) checkDatabase(ctx context.Context, r api.NewSiteRequest) error {
+	kind, ok := serviceKinds[r.Database]
+	if !ok {
+		return nil // SQLite: no instance
+	}
+	if r.Service == "" {
+		instance := instanceName(r.Name, kind)
+		if _, err := services.NormalizeName(instance); err != nil {
+			return InputError{fmt.Errorf("the name is too long for its database instance: %w", err)}
+		}
+		_, err := c.Services.Get(instance)
+		switch {
+		case err == nil:
+			return InputError{fmt.Errorf("a service instance named %s already exists, likely kept when an earlier %s was deleted; delete it on the Services page or pick another name", instance, r.Name)}
+		case !errors.Is(err, registry.ErrServiceNotFound):
+			return err
+		}
+		return nil
+	}
+	svc, err := c.Services.Get(r.Service)
+	if errors.Is(err, registry.ErrServiceNotFound) {
+		return InputError{err}
+	}
+	if err != nil || svc.State != string(supervisor.StateRunning) {
+		return err
+	}
+	pctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	name := databaseName(r.Name)
+	exists, err := databaseExists(pctx, svc, name)
+	if err != nil {
+		return fmt.Errorf("checking %s for a database named %s: %w", svc.Name, name, err)
+	}
+	if exists {
+		return InputError{leftoverDatabase(name, svc.Name)}
+	}
+	return nil
 }
 
 // job is one creation in flight.
@@ -284,12 +339,12 @@ func (j *job) appLines() []string {
 // database readies the Bench instance the app uses (the chosen one,
 // started if stopped, or a new one) and creates the app's database in it.
 func (j *job) database(ctx context.Context) (api.Service, error) {
-	kind := map[string]string{"mysql": "mysql", "mariadb": "mariadb", "pgsql": "postgresql"}[j.req.Database]
+	kind := serviceKinds[j.req.Database]
 	var svc api.Service
 	var err error
 	if j.req.Service == "" {
 		fmt.Fprintf(j.out, "creating a %s instance for %s\n", kind, j.req.Name)
-		svc, err = j.c.Services.Create(api.CreateServiceRequest{Service: kind, Name: j.req.Name + "-" + kind, Autostart: true})
+		svc, err = j.c.Services.Create(api.CreateServiceRequest{Service: kind, Name: instanceName(j.req.Name, kind), Autostart: true})
 	} else if svc, err = j.c.Services.Get(j.req.Service); err == nil && svc.State != "running" {
 		svc, err = j.c.Services.Start(ctx, svc.Name)
 	}
@@ -299,16 +354,56 @@ func (j *job) database(ctx context.Context) (api.Service, error) {
 	if svc.Service != kind {
 		return api.Service{}, fmt.Errorf("%s is %s, not %s", svc.Name, svc.Service, kind)
 	}
-	argv := desktop.TerminalClient(svc, runtime.GOOS)
 	name := databaseName(j.req.Name) // letters, digits and underscores only
+	exists, err := databaseExists(ctx, svc, name)
+	if err != nil {
+		return api.Service{}, fmt.Errorf("checking %s for a database named %s: %w", svc.Name, name, err)
+	}
+	if exists {
+		return api.Service{}, leftoverDatabase(name, svc.Name)
+	}
+	// No IF NOT EXISTS: a database made since the check must fail the
+	// create, never take the new app.
+	argv := desktop.TerminalClient(svc, runtime.GOOS)
 	if kind == "postgresql" {
-		// PostgreSQL has no IF NOT EXISTS here; a new app's name is new.
 		argv = append(argv, "-c", `CREATE DATABASE "`+name+`"`)
 	} else {
-		argv = append(argv, "-e", "CREATE DATABASE IF NOT EXISTS `"+name+"`")
+		argv = append(argv, "-e", "CREATE DATABASE `"+name+"`")
 	}
 	j.service = svc
 	return svc, j.exec(ctx, j.dir, argv, nil)
+}
+
+// serviceKinds maps a request's server database to its instance kind.
+var serviceKinds = map[string]string{"mysql": "mysql", "mariadb": "mariadb", "pgsql": "postgresql"}
+
+// instanceName names the instance created for an app.
+func instanceName(app, kind string) string { return app + "-" + kind }
+
+// probeTimeout bounds asking a running instance for a database before the
+// creation starts. It must stay under the 5s request timeout of
+// api.NewClient (bench new), which waits for POST /api/sites/new.
+const probeTimeout = 3 * time.Second
+
+// databaseExists asks the instance whether it holds a database called
+// name (letters, digits and underscores only, so safe to quote in SQL).
+func databaseExists(ctx context.Context, svc api.Service, name string) (bool, error) {
+	argv := desktop.TerminalClient(svc, runtime.GOOS)
+	if svc.Service == "postgresql" {
+		argv = append(argv, "-tA", "-c", "SELECT datname FROM pg_database WHERE datname = '"+name+"'")
+	} else {
+		argv = append(argv, "-N", "-B", "-e", "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '"+name+"'")
+	}
+	out, err := supervisor.Exec(ctx, supervisor.Spec{Command: argv[0], Args: argv[1:]})
+	if err != nil {
+		return false, fmt.Errorf("%w: %s", err, lastLines(out, 1))
+	}
+	return slices.Contains(strings.Fields(out), name), nil
+}
+
+// leftoverDatabase refuses to put a new app on a database it didn't make.
+func leftoverDatabase(name, instance string) error {
+	return fmt.Errorf("a database named %s already exists on %s, likely left by an earlier app; drop it there or pick another name", name, instance)
 }
 
 func (j *job) migrate(ctx context.Context) error {

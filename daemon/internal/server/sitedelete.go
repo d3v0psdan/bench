@@ -6,6 +6,7 @@ import (
 
 	"github.com/d3v0psdan/bench/daemon/internal/api"
 	"github.com/d3v0psdan/bench/daemon/internal/sitedelete"
+	"github.com/d3v0psdan/bench/daemon/internal/tasks"
 )
 
 // registerSiteDeleteRoutes wires deleting a site: what it would clean up,
@@ -49,6 +50,8 @@ func (s *Server) siteDeleteError(w http.ResponseWriter, err error) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	case errors.As(err, new(sitedelete.InputError)):
 		http.Error(w, err.Error(), http.StatusBadRequest)
+	case errors.Is(err, tasks.ErrShuttingDown):
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 	default:
 		s.Log.Warn("deleting a site failed", "err", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

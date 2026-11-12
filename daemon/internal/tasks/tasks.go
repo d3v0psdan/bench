@@ -24,6 +24,8 @@ var (
 	ErrNotCancellable = errors.New("task can't be cancelled now")
 	// ErrCancelled is what a cancelled operation returns to its caller.
 	ErrCancelled = errors.New("cancelled")
+	// ErrShuttingDown: the daemon is stopping and refused to start the task.
+	ErrShuttingDown = errors.New("Bench is shutting down")
 )
 
 // Leftover is a failure that left something behind. End keeps What on a
@@ -47,6 +49,9 @@ type Registry struct {
 	// the "tasks" WS event). Called with the registry locked, so updates
 	// arrive in order; it must not block or call back into the registry.
 	OnChange func([]api.Task)
+	// Parent, if set, ends every task's Context when it ends: benchd passes
+	// its lifetime, so shutdown cancels tasks a user can't (site delete).
+	Parent context.Context
 
 	mu    sync.Mutex
 	seq   int
@@ -68,12 +73,16 @@ type Task struct {
 }
 
 // Begin registers a running task. Its Context ends when the task is
-// cancelled; the owner must call End exactly once.
+// cancelled or Parent ends; the owner must call End exactly once.
 func (r *Registry) Begin(kind, title, target string, cancellable bool) *Task {
 	if r == nil {
 		return &Task{ctx: context.Background()}
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	parent := r.Parent
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithCancel(parent)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.seq++

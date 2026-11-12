@@ -2,6 +2,7 @@ package sitedelete
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/d3v0psdan/bench/daemon/internal/api"
 	"github.com/d3v0psdan/bench/daemon/internal/caddy"
 	"github.com/d3v0psdan/bench/daemon/internal/registry"
+	"github.com/d3v0psdan/bench/daemon/internal/services"
 	"github.com/d3v0psdan/bench/daemon/internal/sites"
 	"github.com/d3v0psdan/bench/daemon/internal/tasks"
 )
@@ -139,6 +141,53 @@ func TestDropDatabaseRefusesUnsafeNames(t *testing.T) {
 	for _, name := range []string{"mysql", "postgres", "shop`; DROP", `a"b`} {
 		if err := d.dropDatabase(t.Context(), api.SiteDatabase{Service: "x", Name: name}); err == nil {
 			t.Errorf("%q must be refused before anything runs", name)
+		}
+	}
+}
+
+// proxyDeleter is a Deleter over one proxy site, api.test, whose Go
+// answers accept and counts what it accepted in *ran.
+func proxyDeleter(t *testing.T, accept bool) (d *Deleter, ran *int) {
+	t.Helper()
+	reg, err := registry.Open(filepath.Join(t.TempDir(), "bench.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { reg.Close() })
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	m := &sites.Manager{Reg: reg, Router: fakeRouter{}, Pools: fakePools{}, Log: log, InstalledPHP: func() []string { return nil }}
+	if _, err := m.Proxy(t.Context(), "api", "127.0.0.1:3000"); err != nil {
+		t.Fatal(err)
+	}
+	ran = new(int)
+	d = &Deleter{Sites: m, Services: &services.Manager{Reg: reg, Log: log}, Tasks: &tasks.Registry{}, Log: log,
+		Go: func(func()) bool {
+			if accept {
+				*ran++
+			}
+			return accept
+		}}
+	return d, ran
+}
+
+func TestStartHandsTheDeletionToGo(t *testing.T) {
+	d, ran := proxyDeleter(t, true)
+	if _, err := d.Start(t.Context(), "api", api.SiteDeleteRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	if *ran != 1 {
+		t.Fatalf("Go got %d deletions, want 1", *ran)
+	}
+}
+
+func TestStartRefusedByGoReportsShuttingDownAndLeavesNoRunningTask(t *testing.T) {
+	d, _ := proxyDeleter(t, false)
+	if _, err := d.Start(t.Context(), "api", api.SiteDeleteRequest{}); !errors.Is(err, tasks.ErrShuttingDown) {
+		t.Fatalf("err = %v, want %v", err, tasks.ErrShuttingDown)
+	}
+	for _, task := range d.Tasks.List() {
+		if task.State == api.TaskRunning {
+			t.Fatalf("task %+v is left running", task)
 		}
 	}
 }

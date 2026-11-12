@@ -34,6 +34,10 @@ func newNewCmd() *cobra.Command {
 			"parks, so the app is served as soon as it is created.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			dir, err := absPath(dir)
+			if err != nil {
+				return err
+			}
 			req := api.NewSiteRequest{
 				Name: args[0], Dir: dir, Stack: "blade", Testing: "pest", Boost: !noBoost,
 				Database: database, Service: service, Migrate: !noMigrate, PackageManager: "npm",

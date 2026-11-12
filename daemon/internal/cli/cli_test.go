@@ -2,8 +2,10 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -88,6 +90,72 @@ func TestStatusStaleAddrFile(t *testing.T) {
 	}
 	if !strings.Contains(out, "not running") {
 		t.Errorf("output = %q, want it to say not running", out)
+	}
+}
+
+func TestPathArgumentsReachTheDaemonAbsolute(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("BENCH_HOME", home)
+	t.Chdir(t.TempDir())
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A real daemon for the event stream `bench new` opens first, with the
+	// path-taking endpoints swapped for recorders.
+	srv := &server.Server{Token: "tok", StartedAt: time.Now(), Heartbeat: time.Minute, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	sent := make(chan string, 1)
+	record := func(field string, status int, reply string) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			path, _ := body[field].(string) // absent ("" by omitempty) reads as ""
+			sent <- path
+			w.WriteHeader(status)
+			io.WriteString(w, reply)
+		}
+	}
+	mux := http.NewServeMux()
+	mux.Handle("/", srv.Handler())
+	mux.HandleFunc("POST /api/sites/park", record("path", http.StatusOK, "[]"))
+	mux.HandleFunc("POST /api/sites/unpark", record("path", http.StatusOK, "[]"))
+	// Refused, so `bench new` stops instead of waiting for a task.
+	mux.HandleFunc("POST /api/sites/new", record("dir", http.StatusBadRequest, "recorded"))
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+	if err := os.WriteFile(filepath.Join(home, "benchd.addr"), []byte(strings.TrimPrefix(ts.URL, "http://")+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "token"), []byte("tok\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "park .", args: []string{"park", "."}, want: cwd},
+		{name: "park a subfolder", args: []string{"park", "code"}, want: filepath.Join(cwd, "code")},
+		{name: "park with no argument", args: []string{"park"}, want: cwd},
+		{name: "unpark .", args: []string{"unpark", "."}, want: cwd},
+		{name: "unpark with no argument", args: []string{"unpark"}, want: cwd},
+		{name: "new --dir a subfolder", args: []string{"new", "shop", "--dir", "code"}, want: filepath.Join(cwd, "code")},
+		{name: "new without --dir leaves the projects folder to the daemon", args: []string{"new", "shop"}, want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, _ := runBench(t, tt.args...)
+			select {
+			case got := <-sent:
+				if got != tt.want {
+					t.Errorf("daemon got %q, want %q", got, tt.want)
+				}
+			default:
+				t.Fatalf("nothing reached the daemon; output: %s", out)
+			}
+		})
 	}
 }
 

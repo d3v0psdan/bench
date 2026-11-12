@@ -49,6 +49,10 @@ type Deleter struct {
 	Tasks    *tasks.Registry
 	Mail     mail.Finder
 	Log      *slog.Logger
+	// Go runs each deletion in the background, reporting false when it
+	// refused (shutdown began). Required: benchd passes lifeWork.Go so
+	// shutdown waits for deletions to end.
+	Go func(func()) bool
 }
 
 // Plan says what deleting the site named name can clean up.
@@ -106,7 +110,9 @@ func (d *Deleter) Start(ctx context.Context, name string, req api.SiteDeleteRequ
 	// Not cancellable: stopping halfway leaves a site half removed, and
 	// the Recycle Bin move can't be interrupted cleanly.
 	task := d.Tasks.Begin("site.delete", "Deleting "+plan.Site.Host, plan.Site.Name, false)
-	go d.run(plan, req, task)
+	if !d.Go(func() { d.run(plan, req, task) }) {
+		return api.Task{}, task.End(tasks.ErrShuttingDown) // ends the task, so none is left running
+	}
 	return task.Snapshot(), nil
 }
 

@@ -1,6 +1,7 @@
 package dotenv
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -53,6 +54,66 @@ func TestApplyTwiceAddsNoDuplicateMarkers(t *testing.T) {
 	twice, changes := Apply(once, []string{"APP_URL=https://other.test"})
 	if n := strings.Count(twice, Marker); n != 1 || len(changes) != 1 {
 		t.Fatalf("second apply: %d markers, %d changes\n%s", n, len(changes), twice)
+	}
+}
+
+func TestApplyEditsTheLineInEffectAndIsStableOnASecondRun(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    string
+		changes []Change
+	}{
+		{
+			name:    "commented above active",
+			content: "# DB_HOST=old\nDB_HOST=127.0.0.1\n",
+			want:    "# DB_HOST=old\n" + Marker + "\nDB_HOST=x\n",
+			changes: []Change{{Key: "DB_HOST", Old: "127.0.0.1", New: "x"}},
+		},
+		{
+			name:    "active above commented",
+			content: "DB_HOST=127.0.0.1\n# DB_HOST=old\n",
+			want:    Marker + "\nDB_HOST=x\n# DB_HOST=old\n",
+			changes: []Change{{Key: "DB_HOST", Old: "127.0.0.1", New: "x"}},
+		},
+		{
+			name:    "two active lines",
+			content: "DB_HOST=a\nDB_HOST=b\n",
+			want:    "DB_HOST=a\n" + Marker + "\nDB_HOST=x\n",
+			changes: []Change{{Key: "DB_HOST", Old: "b", New: "x"}},
+		},
+		{
+			name:    "commented only",
+			content: "# DB_HOST=a\n# DB_HOST=b\n",
+			want:    "# DB_HOST=a\n" + Marker + "\nDB_HOST=x\n",
+			changes: []Change{{Key: "DB_HOST", New: "x", Added: true}},
+		},
+		{
+			name:    "absent",
+			content: "APP_NAME=Laravel\n",
+			want:    "APP_NAME=Laravel\n\n" + Marker + "\nDB_HOST=x\n",
+			changes: []Change{{Key: "DB_HOST", New: "x", Added: true}},
+		},
+		{
+			name:    "already equal",
+			content: "# DB_HOST=old\nDB_HOST=x\n",
+			want:    "# DB_HOST=old\nDB_HOST=x\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, changes := Apply(tt.content, []string{"DB_HOST=x"})
+			if got != tt.want {
+				t.Errorf("Apply wrote:\n%q\nwant:\n%q", got, tt.want)
+			}
+			if !slices.Equal(changes, tt.changes) {
+				t.Errorf("changes = %+v, want %+v", changes, tt.changes)
+			}
+			again, changes := Apply(got, []string{"DB_HOST=x"})
+			if again != got || len(changes) != 0 {
+				t.Errorf("second Apply changed %+v:\n%q", changes, again)
+			}
+		})
 	}
 }
 

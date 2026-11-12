@@ -1,6 +1,7 @@
 package sites
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -50,5 +51,42 @@ func TestNormalizePHPStoresChannels(t *testing.T) {
 		if s.PHPVersion != want[s.Name] {
 			t.Errorf("%s pin = %q, want %q", s.Name, s.PHPVersion, want[s.Name])
 		}
+	}
+}
+
+// savedLongSite stores a linked site whose name is one past the limit, as a
+// registry from before the limit can hold, and returns the name.
+func savedLongSite(t *testing.T, m *Manager) string {
+	t.Helper()
+	name := strings.Repeat("a", maxNameLen+1)
+	if err := m.Reg.UpsertSite(registry.Site{Name: name, Path: t.TempDir(), Kind: "linked"}); err != nil {
+		t.Fatal(err)
+	}
+	return name
+}
+
+func TestASavedSiteNamedPastTheLimitCanBePinnedAndUnpinned(t *testing.T) {
+	m, _, _ := newTestManager(t)
+	name := savedLongSite(t, m)
+	for _, version := range []string{"8.3", ""} {
+		list, err := m.SetSitePHP(context.Background(), name, version)
+		if err != nil {
+			t.Fatalf("SetSitePHP(%q): %v", version, err)
+		}
+		if len(list) != 1 || list[0].PHPPinned != version {
+			t.Fatalf("SetSitePHP(%q): list = %+v", version, list)
+		}
+	}
+}
+
+func TestASavedSiteNamedPastTheLimitCanBeStarred(t *testing.T) {
+	m, _, _ := newTestManager(t)
+	name := savedLongSite(t, m)
+	list, err := m.SetFavorite(name, true)
+	if err != nil {
+		t.Fatalf("SetFavorite: %v", err)
+	}
+	if len(list) != 1 || !list[0].Favorite {
+		t.Fatalf("list = %+v, want the site starred", list)
 	}
 }

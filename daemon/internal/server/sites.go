@@ -75,6 +75,9 @@ func (s *Server) registerSiteRoutes(mux *http.ServeMux) {
 		if err := dec.Decode(&req); err != nil {
 			return nil, errBadRequest{err}
 		}
+		if err := requireAbsolute(req.Path); err != nil {
+			return nil, err
+		}
 		return s.Sites.Park(r.Context(), req.Path)
 	}))
 	mux.HandleFunc("POST /api/sites/unpark", s.siteMutation(func(r *http.Request, dec *json.Decoder) ([]api.Site, error) {
@@ -82,12 +85,18 @@ func (s *Server) registerSiteRoutes(mux *http.ServeMux) {
 		if err := dec.Decode(&req); err != nil {
 			return nil, errBadRequest{err}
 		}
+		if err := requireAbsolute(req.Path); err != nil {
+			return nil, err
+		}
 		return s.Sites.Unpark(r.Context(), req.Path)
 	}))
 	mux.HandleFunc("POST /api/sites/link", s.siteMutation(func(r *http.Request, dec *json.Decoder) ([]api.Site, error) {
 		var req api.LinkRequest
 		if err := dec.Decode(&req); err != nil {
 			return nil, errBadRequest{err}
+		}
+		if err := requireAbsolute(req.Path); err != nil {
+			return nil, err
 		}
 		return s.Sites.Link(r.Context(), req.Path, req.Name)
 	}))
@@ -184,6 +193,15 @@ func (s *Server) catalogPHP(v string) (string, error) {
 	return channel, nil
 }
 
+// requireAbsolute refuses a relative path: the daemon would resolve it
+// against its own working directory, the Bench home, not the caller's.
+func requireAbsolute(path string) error {
+	if !filepath.IsAbs(path) {
+		return errBadRequest{fmt.Errorf("the path must be absolute, not %q", path)}
+	}
+	return nil
+}
+
 type errBadRequest struct{ err error }
 
 func (e errBadRequest) Error() string { return e.err.Error() }
@@ -217,7 +235,7 @@ func (s *Server) siteMutation(fn func(*http.Request, *json.Decoder) ([]api.Site,
 		if err != nil {
 			status := http.StatusInternalServerError
 			var bad errBadRequest
-			if errors.As(err, &bad) || strings.Contains(err.Error(), "no site named") {
+			if errors.As(err, &bad) || errors.Is(err, sites.ErrInvalidName) || strings.Contains(err.Error(), "no site named") {
 				status = http.StatusBadRequest
 			}
 			http.Error(w, err.Error(), status)

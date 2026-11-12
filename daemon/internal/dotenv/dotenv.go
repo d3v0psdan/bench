@@ -115,9 +115,22 @@ func Comment(content, key string) string {
 	return line.ReplaceAllString(content, "# "+key+"=")
 }
 
-// lineOf finds key's line, active or commented out ("# KEY=").
+// lineOf finds the line to edit for key: the last active one, which is the
+// one in effect, else the last commented-out one ("# KEY=").
 func lineOf(content, key string) []int {
-	return regexp.MustCompile(`(?m)^[ \t]*#?[ \t]*` + regexp.QuoteMeta(key) + `=.*$`).FindStringIndex(content)
+	k := regexp.QuoteMeta(key)
+	if loc := lastMatch(`(?m)^[ \t]*`+k+`=.*$`, content); loc != nil {
+		return loc
+	}
+	return lastMatch(`(?m)^[ \t]*#[ \t]*`+k+`=.*$`, content)
+}
+
+func lastMatch(pattern, content string) []int {
+	all := regexp.MustCompile(pattern).FindAllStringIndex(content, -1)
+	if len(all) == 0 {
+		return nil
+	}
+	return all[len(all)-1]
 }
 
 // markAbove is the marker line to insert before a line, unless the text

@@ -812,10 +812,14 @@ func randomKey() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// NormalizeName applies the instance name rule Create uses, so a caller
+// can refuse a name before starting work that ends in a create.
+func NormalizeName(name string) (string, error) { return normalizeName(name) }
+
 // normalizeName validates an instance name: one DNS label (the same rule
 // as site names), short enough for socket paths.
 func normalizeName(name string) (string, error) {
-	n, err := sites.NormalizeName(name)
+	n, err := sites.NormalizeLabel(name) // the length limit is this package's maxNameLen
 	if err != nil {
 		return "", InputError{msg: err.Error()}
 	}

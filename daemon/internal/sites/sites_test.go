@@ -455,6 +455,59 @@ func TestNormalizeName(t *testing.T) {
 	}
 }
 
+func TestNormalizeNameAccepts63Characters(t *testing.T) {
+	name := strings.Repeat("a", 63)
+	got, err := NormalizeName(name)
+	if err != nil || got != name {
+		t.Fatalf("NormalizeName(63 chars) = %q, %v; want the name back", got, err)
+	}
+}
+
+func TestNormalizeNameRefuses64CharactersWithTheLimitInTheError(t *testing.T) {
+	_, err := NormalizeName(strings.Repeat("a", 64))
+	if err == nil {
+		t.Fatal("NormalizeName(64 chars) should fail")
+	}
+	if !strings.Contains(err.Error(), "63") {
+		t.Fatalf("error %q should state the 63-character limit", err)
+	}
+}
+
+func TestParkSkipsFolderNameOver63CharactersAndListsTheRest(t *testing.T) {
+	m, _, _ := newTestManager(t)
+	parent := t.TempDir()
+	projectDir(t, parent, "shop", true)
+	projectDir(t, parent, strings.Repeat("a", 64), true)
+
+	list, err := m.Park(context.Background(), parent)
+	if err != nil {
+		t.Fatalf("Park failed: %v", err)
+	}
+	if len(list) != 1 || list[0].Name != "shop" {
+		t.Fatalf("sites = %+v; want only shop", list)
+	}
+	list, err = m.List(context.Background())
+	if err != nil || len(list) != 1 {
+		t.Fatalf("List = %+v, %v; want only shop", list, err)
+	}
+}
+
+func TestUnlinkRemovesASiteSavedWithA64CharacterName(t *testing.T) {
+	m, _, _ := newTestManager(t)
+	long := strings.Repeat("a", 64)
+	if err := m.Reg.UpsertSite(registry.Site{Name: long, Path: t.TempDir(), Kind: "linked"}); err != nil {
+		t.Fatal(err)
+	}
+
+	list, err := m.Unlink(context.Background(), long)
+	if err != nil {
+		t.Fatalf("Unlink failed: %v", err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("sites = %+v; want none", list)
+	}
+}
+
 func TestFavoritesStarParkedSitesAndSurviveRelist(t *testing.T) {
 	m, _, _ := newTestManager(t)
 	parent := t.TempDir()

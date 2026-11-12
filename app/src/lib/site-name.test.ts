@@ -17,6 +17,20 @@ describe("site names", () => {
     expect(nameProblem("shop", ["shop"])).toBe("shop.test already exists.");
   });
 
+  test("nameProblem accepts 63 characters", () => {
+    expect(nameProblem("a".repeat(63), [])).toBeNull();
+  });
+
+  test("nameProblem refuses 64 characters", () => {
+    expect(nameProblem("a".repeat(64), [])).toBe("Use 63 characters or fewer.");
+  });
+
+  test("suggestName shortens a long folder name to a valid name without a trailing hyphen", () => {
+    const suggestion = suggestName(`${"a".repeat(62)} b${"c".repeat(20)}`);
+    expect(suggestion).toBe("a".repeat(62));
+    expect(nameProblem(suggestion, [])).toBeNull();
+  });
+
   test("folderName reads Windows and Unix paths", () => {
     expect(folderName("C:\\Code\\shop\\")).toBe("shop");
     expect(folderName("/home/me/code/blog")).toBe("blog");

@@ -6,6 +6,7 @@ import (
 
 	"github.com/d3v0psdan/bench/daemon/internal/api"
 	"github.com/d3v0psdan/bench/daemon/internal/newapp"
+	"github.com/d3v0psdan/bench/daemon/internal/tasks"
 )
 
 // registerNewAppRoutes wires creating Laravel apps and the tool check the
@@ -23,9 +24,19 @@ func (s *Server) registerNewAppRoutes(mux *http.ServeMux) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		if req.Dir != "" { // "" means the projects folder
+			if err := requireAbsolute(req.Dir); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
 		task, err := s.NewApp.Start(r.Context(), req)
 		if errors.As(err, new(newapp.InputError)) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, tasks.ErrShuttingDown) {
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 			return
 		}
 		if err != nil {

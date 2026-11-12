@@ -116,6 +116,11 @@ func (s *Server) updateEnv(w http.ResponseWriter, r *http.Request) (api.EnvResul
 // crash never leaves half a .env and a link planted meanwhile is replaced,
 // not written through.
 func writeAtomic(path string, data []byte) error {
+	// Keep the replaced file's mode: a .env at 0600 holds secrets.
+	mode := fs.FileMode(0o644)
+	if fi, err := os.Lstat(path); err == nil && fi.Mode().IsRegular() {
+		mode = fi.Mode().Perm()
+	}
 	f, err := os.CreateTemp(filepath.Dir(path), ".env.bench-*")
 	if err != nil {
 		return err
@@ -130,7 +135,7 @@ func writeAtomic(path string, data []byte) error {
 		os.Remove(tmp)
 		return err
 	}
-	if err := os.Chmod(tmp, 0o644); err != nil {
+	if err := os.Chmod(tmp, mode); err != nil {
 		os.Remove(tmp)
 		return err
 	}

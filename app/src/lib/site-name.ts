@@ -2,6 +2,8 @@
 // of lowercase letters, digits and hyphens, served as <name>.test.
 
 const NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+// The longest DNS label (RFC 1035), the daemon's maxNameLen in sites.go.
+const MAX_NAME_LENGTH = 63;
 
 /** suggestName turns a folder name into a valid site name:
  *  "Laravel App_v2" becomes "laravel-app-v2". */
@@ -10,7 +12,9 @@ export function suggestName(folder: string): string {
     .toLowerCase()
     .replace(/\.test$/, "")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/^-+/, "")
+    .slice(0, MAX_NAME_LENGTH)
+    .replace(/-+$/, "");
 }
 
 /** nameProblem says what's wrong with a typed site name, or null. */
@@ -21,6 +25,7 @@ export function nameProblem(name: string, taken: string[]): string | null {
     .replace(/\.test$/, "");
   if (n === "") return "Enter a name.";
   if (!NAME.test(n)) return "Use letters, digits and hyphens, not starting or ending with a hyphen.";
+  if (n.length > MAX_NAME_LENGTH) return `Use ${MAX_NAME_LENGTH} characters or fewer.`;
   if (taken.includes(n)) return `${n}.test already exists.`;
   return null;
 }

@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -145,5 +146,15 @@ func TestNilRegistryIsInert(t *testing.T) {
 	}
 	if len(r.List()) != 0 || !errors.Is(r.Cancel("t1"), ErrNotFound) {
 		t.Fatal("nil registry must list nothing and find nothing")
+	}
+}
+
+func TestTaskContextEndsWhenTheRegistryParentEnds(t *testing.T) {
+	parent, cancel := context.WithCancel(context.Background())
+	r := &Registry{Parent: parent}
+	task := r.Begin("site.delete", "Deleting app.test", "app", false)
+	cancel()
+	if task.Context().Err() == nil {
+		t.Fatal("the task's context is still live after the registry's parent ended")
 	}
 }

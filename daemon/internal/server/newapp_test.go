@@ -64,3 +64,32 @@ func TestNewSiteRejectsBadRequestsBeforeStarting(t *testing.T) {
 		t.Errorf("GET /api/tasks/nope/log: %d, want 404", resp.StatusCode)
 	}
 }
+
+func TestNewSiteRefusesARelativeFolder(t *testing.T) {
+	root := t.TempDir()
+	reg, err := registry.Open(filepath.Join(root, "bench.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { reg.Close() })
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	siteMgr := &sites.Manager{Reg: reg, Router: nopRouter{}, Log: log, InstalledPHP: installedPHP("8.4")}
+	started := 0
+	s := &Server{
+		Token: testToken, StartedAt: time.Now(), Heartbeat: time.Minute, Log: log, Sites: siteMgr,
+		NewApp: &newapp.Creator{Root: root, Sites: siteMgr, Log: log, Go: func(func()) bool { started++; return true }},
+	}
+	ts := httptest.NewServer(s.Handler())
+	t.Cleanup(ts.Close)
+
+	resp := authedJSON(t, "POST", ts.URL+"/api/sites/new",
+		`{"name":"shop","dir":"code","stack":"blade","testing":"pest","database":"sqlite"}`)
+	msg, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("status %d (%s), want 400", resp.StatusCode, msg)
+	}
+	if started != 0 {
+		t.Error("the creation started anyway")
+	}
+}

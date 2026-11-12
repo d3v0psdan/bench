@@ -287,15 +287,21 @@ export function useDaemon() {
       .catch((e) => setSetupState({ error: e instanceof Error ? e.message : String(e) }));
   };
 
-  /** refreshBinaries re-reads the catalog (after an install completes). */
+  /** refreshBinaries re-reads the catalog and the default PHP (after an
+   *  install completes: the first PHP installed becomes the default). Each
+   *  result applies on its own; a failure of either is shown. */
   const refreshBinaries = () => {
     const c = connRef.current;
     if (!c) return Promise.resolve();
-    return withTimeout(api<BinaryInfo[]>(c, "GET", "/api/binaries"), DEFAULT_TIMEOUT_MS, "Bench didn't answer in time")
-      .then(setBinaries)
-      .catch((e: unknown) =>
-        toast.error("Couldn't refresh the installed versions", { description: errorMessage(e) }),
-      );
+    const load = <T,>(path: string) => withTimeout(api<T>(c, "GET", path), DEFAULT_TIMEOUT_MS, "Bench didn't answer in time");
+    return Promise.allSettled([load<BinaryInfo[]>("/api/binaries"), load<Record<string, string>>("/api/settings")]).then(
+      ([b, settings]) => {
+        if (b.status === "fulfilled") setBinaries(b.value);
+        else toast.error("Couldn't refresh the installed versions", { description: errorMessage(b.reason) });
+        if (settings.status === "fulfilled") setDefaultPhp(settings.value["php.default"] ?? null);
+        else toast.error("Couldn't refresh the default PHP", { description: errorMessage(settings.reason) });
+      },
+    );
   };
 
   useEffect(() => () => window.clearTimeout(pendingTimer.current), []);

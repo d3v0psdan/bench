@@ -107,3 +107,17 @@ func TestPickDB(t *testing.T) {
 		t.Fatal("mail is not a database")
 	}
 }
+
+func TestSitesTableSaysNoneForASiteWithNoPHP(t *testing.T) {
+	buf := new(bytes.Buffer)
+	cmd := New()
+	cmd.SetOut(buf)
+	printSites(cmd, []api.Site{
+		{URL: "https://app.test", Kind: "linked", Path: "/code/app"},
+		{URL: "https://api.test", Kind: "proxy", ProxyTo: "127.0.0.1:3000"},
+	})
+	lines := strings.Split(buf.String(), "\n")
+	if len(lines) < 3 || !strings.Contains(lines[1], " none ") || strings.Contains(lines[2], "none") {
+		t.Fatalf("sites table:\n%s\nwant PHP none for app.test and blank for the proxy", buf.String())
+	}
+}

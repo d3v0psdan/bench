@@ -31,7 +31,7 @@ func TestUpdatesAskGitHubOnceADayAndNeverWhenOff(t *testing.T) {
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	s := &Server{
 		Token: testToken, StartedAt: time.Now(), Heartbeat: time.Minute, Log: log, Version: "0.1.0",
-		Sites: &sites.Manager{Reg: reg, Router: nopRouter{}, Log: log}, UpdatesURL: gh.URL,
+		Sites: &sites.Manager{Reg: reg, Router: nopRouter{}, Log: log, InstalledPHP: installedPHP("8.4")}, UpdatesURL: gh.URL,
 	}
 	ts := httptest.NewServer(s.Handler())
 	t.Cleanup(ts.Close)

@@ -20,7 +20,7 @@ import { InstallButton } from "@/components/php-pane";
 import { CreateServiceDialog } from "@/components/service-dialogs";
 import { useDaemonContext } from "@/hooks/daemon-provider";
 import { useDoctor, useHealth } from "@/hooks/use-doctor";
-import { useRoute } from "@/hooks/route";
+import { phpSetup } from "@/lib/php";
 import { usePrivacy } from "@/lib/privacy";
 import { cn } from "@/lib/utils";
 
@@ -44,10 +44,9 @@ interface Step {
  *  can be collapsed but not dismissed while a step is open. It disappears
  *  once everything is done, and comes back if something breaks later. */
 export function GetStarted() {
-  const { sites, services, binaries, defaultPhp, loadError, reloadData } = useDaemonContext();
+  const { sites, services, binaries, loadError, reloadData } = useDaemonContext();
   const { canServe, needsSetup, herd, error: checkError } = useHealth();
   const { byId } = useDoctor();
-  const { navigate } = useRoute();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === "1");
   const [dbOpen, setDbOpen] = useState(false);
   const [envOpen, setEnvOpen] = useState(false);
@@ -59,7 +58,7 @@ export function GetStarted() {
   const dbPorts = (services ?? []).filter((s) => DATABASES.has(s.service)).map((s) => s.port);
   const connected = sites?.some((s) => s.env_ports?.some((p) => dbPorts.includes(p))) ?? false;
 
-  const php = binaries?.find((b) => b.name === "php" && b.channel === defaultPhp);
+  const php = phpSetup(binaries);
   const checkFailure = checkError ? { message: checkError, retry: <RecheckButton /> } : undefined;
   const loadFailure = loadError
     ? {
@@ -109,17 +108,14 @@ export function GetStarted() {
     },
     {
       id: "php",
-      title: php ? `Install PHP ${php.channel}` : "Install PHP",
-      description: "The default for your sites.",
-      done: binaries === null ? null : !!php?.installed,
+      title: "Install PHP",
+      // The catalog only lists builds for this system, and may have no PHP.
+      description: php.latest
+        ? `PHP isn't installed. The latest is PHP ${php.latest.channel}.`
+        : "Bench has no PHP for this system.",
+      done: php.installed,
       failure: loadFailure,
-      action: php ? (
-        <InstallButton build={php} />
-      ) : (
-        <Button variant="outline" size="sm" onClick={() => navigate({ kind: "home", section: "php" })}>
-          Choose a version
-        </Button>
-      ),
+      action: php.latest ? <InstallButton build={php.latest} /> : undefined,
     },
     {
       id: "site",

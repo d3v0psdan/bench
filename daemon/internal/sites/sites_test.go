@@ -78,6 +78,8 @@ func newTestManager(t *testing.T) (*Manager, *fakeRouter, *fakePools) {
 		Router: router,
 		Pools:  pools,
 		Log:    slog.New(slog.NewTextHandler(io.Discard, nil)),
+		// The registry seeds php.default = 8.4, so 8.4 is the default.
+		InstalledPHP: func() []string { return []string{"8.3", "8.4", "8.5"} },
 	}
 	return m, router, pools
 }
@@ -129,7 +131,7 @@ func TestParkServesSubdirsWithDocroot(t *testing.T) {
 		t.Fatalf("legacy docroot = %s", got)
 	}
 	// One pool ensure for the single default channel.
-	if len(pools.ensured) != 1 || pools.ensured[0] != DefaultPHP {
+	if len(pools.ensured) != 1 || pools.ensured[0] != "8.4" {
 		t.Fatalf("pools ensured = %v", pools.ensured)
 	}
 }
@@ -322,7 +324,7 @@ func TestIsolateParkedAndLinked(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if list[0].PHP != DefaultPHP || list[0].PHPPinned != "" {
+	if list[0].PHP != "8.4" || list[0].PHPPinned != "" {
 		t.Fatalf("unisolated site = %+v", list[0])
 	}
 }

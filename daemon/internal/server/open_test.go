@@ -68,7 +68,7 @@ func TestOpenSiteRoutes(t *testing.T) {
 	s := &Server{
 		Token: testToken, StartedAt: time.Now(), Heartbeat: time.Minute,
 		Log:   slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Sites: &sites.Manager{Reg: reg, Router: nopRouter{}, Log: slog.New(slog.NewTextHandler(io.Discard, nil))},
+		Sites: &sites.Manager{Reg: reg, Router: nopRouter{}, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), InstalledPHP: installedPHP("8.4")},
 	}
 	ts := httptest.NewServer(s.Handler())
 	t.Cleanup(ts.Close)

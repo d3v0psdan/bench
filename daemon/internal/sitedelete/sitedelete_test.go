@@ -162,7 +162,10 @@ func TestDeletingAPinnedParkedSiteDropsItsSettingsButDoesNotIgnoreIt(t *testing.
 	}
 	t.Cleanup(func() { reg.Close() })
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	m := &sites.Manager{Reg: reg, Router: fakeRouter{}, Pools: fakePools{}, Log: log}
+	m := &sites.Manager{
+		Reg: reg, Router: fakeRouter{}, Pools: fakePools{}, Log: log,
+		InstalledPHP: func() []string { return []string{"8.3", "8.4"} },
+	}
 	parent := t.TempDir()
 	if err := os.Mkdir(filepath.Join(parent, "app"), 0o755); err != nil {
 		t.Fatal(err)

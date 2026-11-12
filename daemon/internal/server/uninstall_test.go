@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -41,7 +42,7 @@ func TestUninstallPHPRefusesVersionsSitesNeed(t *testing.T) {
 		Binaries: &binman.Manager{Manifests: map[string]binman.Manifest{
 			"php": {Schema: 1, Name: "php", Builds: []binman.Build{php("8.3"), php("8.4")}},
 		}},
-		Sites: &sites.Manager{Reg: reg},
+		Sites: &sites.Manager{Reg: reg, InstalledPHP: installedPHP("8.3", "8.4")},
 		RemovePHP: func(channel string) error {
 			removed = append(removed, channel)
 			return nil
@@ -116,7 +117,10 @@ func TestPHPVersionsAreStoredByChannel(t *testing.T) {
 		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Heartbeat: time.Minute,
 		Binaries:  &binman.Manager{Manifests: map[string]binman.Manifest{"php": {Schema: 1, Name: "php", Builds: []binman.Build{build}}}},
-		Sites:     &sites.Manager{Reg: reg, Router: nopRouter{}, Log: slog.New(slog.NewTextHandler(io.Discard, nil))},
+		Sites: &sites.Manager{
+			Reg: reg, Router: nopRouter{}, Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+			InstalledPHP: installedPHP("8.4"),
+		},
 	}
 	ts := httptest.NewServer(s.Handler())
 	t.Cleanup(ts.Close)
@@ -126,6 +130,85 @@ func TestPHPVersionsAreStoredByChannel(t *testing.T) {
 	if got, _ := reg.Setting("php.default"); got != "8.4" {
 		t.Fatalf("php.default stored as %q, want the channel 8.4", got)
 	}
+}
+
+// phpServer serves a catalog of PHP channels with installed ones on disk
+// and php.default saved as savedDefault.
+func phpServer(t *testing.T, catalog, installed []string, savedDefault string) (*httptest.Server, *registry.Registry, *[]string) {
+	t.Helper()
+	reg, err := registry.Open(filepath.Join(t.TempDir(), "bench.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { reg.Close() })
+	if err := reg.SetSetting("php.default", savedDefault); err != nil {
+		t.Fatal(err)
+	}
+	var builds []binman.Build
+	for _, c := range catalog {
+		builds = append(builds, binman.Build{Name: "php", Version: c + ".0", Channel: c, OS: runtime.GOOS, Arch: runtime.GOARCH})
+	}
+	removed := &[]string{}
+	s := &Server{
+		Token:     testToken,
+		StartedAt: time.Now(),
+		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Heartbeat: time.Minute,
+		Binaries:  &binman.Manager{Manifests: map[string]binman.Manifest{"php": {Schema: 1, Name: "php", Builds: builds}}},
+		Sites: &sites.Manager{
+			Reg: reg, Router: nopRouter{}, Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+			InstalledPHP: installedPHP(installed...),
+		},
+		RemovePHP: func(channel string) error {
+			*removed = append(*removed, channel)
+			return nil
+		},
+	}
+	ts := httptest.NewServer(s.Handler())
+	t.Cleanup(ts.Close)
+	return ts, reg, removed
+}
+
+// The owner's machine: 8.4 saved from the first launch, only 8.5 installed.
+func TestUninstallPHPRefusesTheInstalledVersionStandingInForAMissingSavedDefault(t *testing.T) {
+	ts, _, removed := phpServer(t, []string{"8.4", "8.5"}, []string{"8.5"}, "8.4")
+
+	resp := authedJSON(t, "DELETE", ts.URL+"/api/binaries/php/8.5", "")
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("uninstall 8.5 = %d, want 409: it is the default", resp.StatusCode)
+	}
+	if len(*removed) != 0 {
+		t.Fatalf("removed %v despite refusing", *removed)
+	}
+}
+
+func TestSettingAnUnusablePHPDefaultIsA400AndSavesNothing(t *testing.T) {
+	ts, reg, _ := phpServer(t, []string{"8.3", "8.4"}, []string{"8.4"}, "8.4")
+	for _, tc := range []struct {
+		name, value, want string
+	}{
+		{name: "empty", value: "", want: "name a PHP version"},
+		{name: "not in the catalog", value: "7.1", want: "PHP 7.1 isn't in Bench's catalog"},
+		{name: "not installed", value: "8.3", want: "PHP 8.3 isn't installed; install it on the Runtimes page"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := authedJSON(t, "POST", ts.URL+"/api/settings", `{"key":"php.default","value":"`+tc.value+`"}`)
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusBadRequest || !strings.Contains(string(body), tc.want) {
+				t.Fatalf("set default %q = %d %q, want 400 with %q", tc.value, resp.StatusCode, body, tc.want)
+			}
+			if got, _ := reg.Setting("php.default"); got != "8.4" {
+				t.Fatalf("php.default = %q after a refused change, want 8.4", got)
+			}
+		})
+	}
+}
+
+// installedPHP stands in for the PHP channels installed on disk.
+func installedPHP(channels ...string) func() []string {
+	return func() []string { return channels }
 }
 
 // nopRouter accepts every Caddy config.

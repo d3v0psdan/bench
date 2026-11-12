@@ -28,10 +28,19 @@ import (
 	"github.com/d3v0psdan/bench/daemon/internal/caddy"
 	"github.com/d3v0psdan/bench/daemon/internal/dotenv"
 	"github.com/d3v0psdan/bench/daemon/internal/registry"
+	"github.com/d3v0psdan/bench/daemon/internal/version"
 )
 
-// DefaultPHP is the global fallback when php.default is somehow unset.
-const DefaultPHP = "8.4"
+// PHPNotInstalledError is a PHP version that isn't installed. An empty
+// Channel means no PHP is installed at all.
+type PHPNotInstalledError struct{ Channel string }
+
+func (e PHPNotInstalledError) Error() string {
+	if e.Channel == "" {
+		return "PHP isn't installed; install a version on the Runtimes page (or with bench php:install <version>)"
+	}
+	return fmt.Sprintf("PHP %s isn't installed; install it on the Runtimes page (or with bench php:install %s)", e.Channel, e.Channel)
+}
 
 // Router is the Caddy surface the manager drives (interface for tests).
 type Router interface {
@@ -50,6 +59,10 @@ type Manager struct {
 	Router Router
 	Pools  PoolEnsurer
 	Log    *slog.Logger
+	// InstalledPHP lists the installed PHP channels ("8.5"), in any order.
+	// The default PHP follows it ("first install wins"). Required: without
+	// it, reading the default fails.
+	InstalledPHP func() []string
 	// OnChange, if set, receives the fresh site list after every applied
 	// mutation (feeds the "sites" WS event).
 	OnChange func([]api.Site)
@@ -93,12 +106,9 @@ func (m *Manager) effectiveSites() ([]site, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	defaultPHP, err := m.Reg.Setting("php.default")
+	defaultPHP, err := m.DefaultPHP()
 	if err != nil {
 		return nil, "", err
-	}
-	if defaultPHP == "" {
-		defaultPHP = DefaultPHP
 	}
 	ignored, err := m.Reg.IgnoredPaths()
 	if err != nil {
@@ -173,6 +183,9 @@ func (m *Manager) applyLocked(ctx context.Context) ([]api.Site, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := m.saveDefaultPHP(defaultPHP); err != nil {
+		return nil, err
+	}
 
 	errs := map[string]string{}
 	upstreams := map[string]string{} // channel → upstream (or "" after failure)
@@ -185,6 +198,10 @@ func (m *Manager) applyLocked(ctx context.Context) ([]api.Site, error) {
 		channel := s.pinned
 		if channel == "" {
 			channel = defaultPHP
+		}
+		if channel == "" { // no PHP installed, so no default yet
+			errs[s.name] = PHPNotInstalledError{}.Error()
+			continue
 		}
 		upstream, seen := upstreams[channel]
 		if !seen {
@@ -245,16 +262,67 @@ func (m *Manager) serve(ctx context.Context, routes []caddy.Site) error {
 // ParkedDirs lists the parked directories.
 func (m *Manager) ParkedDirs() ([]string, error) { return m.Reg.ParkedDirs() }
 
-// DefaultPHP reports the global default PHP channel.
+// DefaultPHP reports the global default PHP channel under the rule "first
+// install wins": the saved default while it's installed, else the newest
+// installed channel, else "" (no PHP installed, so no default). It only
+// reads; Apply saves a default that moved (see saveDefaultPHP).
 func (m *Manager) DefaultPHP() (string, error) {
-	v, err := m.Reg.Setting("php.default")
+	saved, err := m.Reg.Setting("php.default")
 	if err != nil {
 		return "", err
 	}
-	if v == "" {
-		v = DefaultPHP
+	installed, err := m.installedPHP()
+	if err != nil {
+		return "", err
 	}
-	return v, nil
+	if slices.Contains(installed, saved) {
+		return saved, nil
+	}
+	return NewestPHP(installed), nil
+}
+
+// errInstalledPHPNotWired is a Manager built without its InstalledPHP
+// lookup: a wiring bug, not "no PHP installed" (that's an empty list).
+var errInstalledPHPNotWired = errors.New("sites.Manager.InstalledPHP is not set, so the default PHP can't be worked out")
+
+// installedPHP lists the installed PHP channels.
+func (m *Manager) installedPHP() ([]string, error) {
+	if m.InstalledPHP == nil {
+		return nil, errInstalledPHPNotWired
+	}
+	return m.InstalledPHP(), nil
+}
+
+// saveDefaultPHP stores the effective default when it has moved off a
+// saved version that isn't installed, so the version installed first stays
+// the default once another is installed. The caller holds m.mu.
+func (m *Manager) saveDefaultPHP(effective string) error {
+	if effective == "" {
+		return nil
+	}
+	saved, err := m.Reg.Setting("php.default")
+	if err != nil {
+		return err
+	}
+	if saved == effective {
+		return nil
+	}
+	if err := m.Reg.SetSetting("php.default", effective); err != nil {
+		return fmt.Errorf("saving PHP %s as the default: %w", effective, err)
+	}
+	m.Log.Info("default PHP moved to an installed version", "was", saved, "now", effective)
+	return nil
+}
+
+// NewestPHP picks the newest PHP channel ("8.5" over "8.4"); "" for none.
+func NewestPHP(channels []string) string {
+	newest := ""
+	for _, c := range channels {
+		if newest == "" || version.Newer(c, newest) {
+			newest = c
+		}
+	}
+	return newest
 }
 
 // List reports the current site model without touching infrastructure,
@@ -501,12 +569,25 @@ func (m *Manager) NormalizePHP(channel func(string) (string, bool)) error {
 	return errors.Join(errs...)
 }
 
-// SetDefaultPHP switches the global default PHP version.
+// SetDefaultPHP switches the global default PHP version. Only an installed
+// version can be chosen: a channel that isn't installed fails with
+// PHPNotInstalledError and nothing is saved. (The saved value can still be
+// one that isn't installed, such as the 8.4 seeded at first launch, until
+// Apply moves it; DefaultPHP reports the effective one meanwhile.)
 func (m *Manager) SetDefaultPHP(ctx context.Context, channel string) ([]api.Site, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	installed, err := m.installedPHP()
+	if err != nil {
+		return nil, err
+	}
+	if !slices.Contains(installed, channel) {
+		return nil, PHPNotInstalledError{Channel: channel}
+	}
 	if err := m.Reg.SetSetting("php.default", channel); err != nil {
 		return nil, err
 	}
-	return m.Apply(ctx)
+	return m.applyLocked(ctx)
 }
 
 func checkDir(path string) (string, error) {

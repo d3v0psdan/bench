@@ -198,6 +198,14 @@ func (j *job) prepare(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("reading the default PHP: %w", err)
 	}
+	if channel == "" {
+		// No PHP installed: install the newest, which then becomes the default.
+		var catalog []string
+		for _, b := range j.c.Bin.Channels("php") {
+			catalog = append(catalog, b.Channel)
+		}
+		channel = sites.NewestPHP(catalog)
+	}
 	for _, bin := range []struct{ name, channel string }{{"php", channel}, {"composer", "2"}} {
 		b, err := j.c.Bin.Resolve(bin.name, bin.channel)
 		if err != nil {

@@ -23,7 +23,7 @@ func TestNewSiteRejectsBadRequestsBeforeStarting(t *testing.T) {
 	}
 	t.Cleanup(func() { reg.Close() })
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	siteMgr := &sites.Manager{Reg: reg, Router: nopRouter{}, Log: log}
+	siteMgr := &sites.Manager{Reg: reg, Router: nopRouter{}, Log: log, InstalledPHP: installedPHP("8.4")}
 	s := &Server{
 		Token: testToken, StartedAt: time.Now(), Heartbeat: time.Minute, Log: log, Sites: siteMgr,
 		NewApp: &newapp.Creator{Root: root, Sites: siteMgr, Log: log},

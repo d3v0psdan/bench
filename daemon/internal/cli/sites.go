@@ -57,6 +57,9 @@ func printSites(cmd *cobra.Command, list []api.Site) {
 			target = "→ " + s.ProxyTo
 		}
 		php := s.PHP
+		if php == "" && s.Kind != "proxy" {
+			php = "none" // no PHP installed, so no default
+		}
 		if s.PHPPinned != "" {
 			php += " (isolated)"
 		}

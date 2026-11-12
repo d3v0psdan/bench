@@ -10,6 +10,7 @@ import { DeleteSiteDialog } from "@/components/sites/delete-site";
 import { useDaemonContext } from "@/hooks/daemon-provider";
 import { api, type Site } from "@/lib/api";
 import { errorMessage, withTimeout } from "@/lib/async";
+import { phpSetup } from "@/lib/php";
 import { usePrivacy } from "@/lib/privacy";
 
 const SITE_TIMEOUT_MS = 60_000;
@@ -163,7 +164,12 @@ function SitePhpSettings({ site }: { site: Site }) {
             <SelectGroup>
               {/* Say so wherever a version isn't installed (audit UI-02). */}
               <SelectItem value="default">
-                Default{defaultPhp ? ` (${defaultPhp}${installedPhp.includes(defaultPhp) ? "" : ", not installed"})` : ""}
+                Default
+                {defaultPhp
+                  ? ` (${defaultPhp}${installedPhp.includes(defaultPhp) ? "" : ", not installed"})`
+                  : phpSetup(binaries).installed === false
+                    ? " (PHP isn't installed)"
+                    : ""}
               </SelectItem>
               {phpOptions.map((ch) => (
                 <SelectItem key={ch} value={ch}>

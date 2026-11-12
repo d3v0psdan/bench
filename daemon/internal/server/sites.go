@@ -11,6 +11,7 @@ import (
 	"github.com/d3v0psdan/bench/daemon/internal/api"
 	"github.com/d3v0psdan/bench/daemon/internal/desktop"
 	"github.com/d3v0psdan/bench/daemon/internal/newapp"
+	"github.com/d3v0psdan/bench/daemon/internal/sites"
 )
 
 // registerSiteRoutes wires the site-model endpoints. Every mutation
@@ -125,7 +126,15 @@ func (s *Server) registerSiteRoutes(mux *http.ServeMux) {
 		}
 		switch req.Key {
 		case "php.default":
-			return s.Sites.SetDefaultPHP(r.Context(), s.phpChannel(req.Value))
+			channel, err := s.catalogPHP(req.Value)
+			if err != nil {
+				return nil, err
+			}
+			list, err := s.Sites.SetDefaultPHP(r.Context(), channel)
+			if errors.As(err, new(sites.PHPNotInstalledError)) {
+				return nil, errBadRequest{err}
+			}
+			return list, err
 		case settingEditor:
 			if req.Value != "" && !desktop.KnownEditor(req.Value) {
 				return nil, errBadRequest{fmt.Errorf("unknown editor %q", req.Value)}
@@ -157,6 +166,23 @@ func (s *Server) registerSiteRoutes(mux *http.ServeMux) {
 
 // settingEditor is the editor "Open in editor" uses ("" = first installed).
 const settingEditor = "editor.default"
+
+// catalogPHP checks a requested PHP version at the boundary and returns
+// its catalog channel ("8.4" for "8.4.12").
+func (s *Server) catalogPHP(v string) (string, error) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return "", errBadRequest{errors.New("name a PHP version, e.g. 8.5")}
+	}
+	if s.Binaries == nil {
+		return "", errors.New("binary manager unavailable")
+	}
+	channel, ok := s.Binaries.Channel("php", v)
+	if !ok {
+		return "", errBadRequest{fmt.Errorf("PHP %s isn't in Bench's catalog", v)}
+	}
+	return channel, nil
+}
 
 type errBadRequest struct{ err error }
 

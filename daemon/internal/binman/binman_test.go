@@ -171,6 +171,35 @@ func TestInstallTarGzMultipleDownloads(t *testing.T) {
 	}
 }
 
+func TestOnInstalledRunsBeforeInstallReturnsOnlyWhenTheInstallSucceeds(t *testing.T) {
+	body := buildZip(t, map[string]string{"tool.exe": "binary bits"})
+	t.Run("success", func(t *testing.T) {
+		m, _ := newTestManager(t, "zip", body)
+		var got []string
+		m.OnInstalled = func(b Build) { got = append(got, b.Name+" "+b.Version) }
+		if _, err := m.Install(context.Background(), "tool", "1"); err != nil {
+			t.Fatalf("Install: %v", err)
+		}
+		if !slices.Equal(got, []string{"tool 1.0.0"}) {
+			t.Fatalf("OnInstalled calls = %v, want one for tool 1.0.0", got)
+		}
+	})
+	t.Run("failure", func(t *testing.T) {
+		m, _ := newTestManager(t, "zip", body)
+		man := m.Manifests["tool"]
+		man.Builds[0].Downloads[0].SHA256 = strings.Repeat("ab", 32) // wrong
+		m.Manifests["tool"] = man
+		called := false
+		m.OnInstalled = func(Build) { called = true }
+		if _, err := m.Install(context.Background(), "tool", "1"); err == nil {
+			t.Fatal("Install with a bad checksum succeeded")
+		}
+		if called {
+			t.Fatal("OnInstalled ran for a failed install")
+		}
+	})
+}
+
 func TestChecksumMismatchAbortsCleanly(t *testing.T) {
 	body := buildZip(t, map[string]string{"tool.exe": "binary bits"})
 	m, _ := newTestManager(t, "zip", body)

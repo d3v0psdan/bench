@@ -32,7 +32,7 @@ func TestEnvDryRunThenWrite(t *testing.T) {
 	}
 	t.Cleanup(func() { reg.Close() })
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	siteMgr := &sites.Manager{Reg: reg, Router: nopRouter{}, Pools: nopPools{}, Log: log}
+	siteMgr := &sites.Manager{Reg: reg, Router: nopRouter{}, Pools: nopPools{}, Log: log, InstalledPHP: installedPHP("8.4")}
 	project := filepath.Join(root, "shop")
 	envPath := filepath.Join(project, ".env")
 	if err := os.MkdirAll(project, 0o755); err != nil {
@@ -107,7 +107,7 @@ func TestEnvRefusesASymlinkedEnv(t *testing.T) {
 	}
 	t.Cleanup(func() { reg.Close() })
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	siteMgr := &sites.Manager{Reg: reg, Router: nopRouter{}, Pools: nopPools{}, Log: log}
+	siteMgr := &sites.Manager{Reg: reg, Router: nopRouter{}, Pools: nopPools{}, Log: log, InstalledPHP: installedPHP("8.4")}
 	project := filepath.Join(root, "shop")
 	victim := filepath.Join(root, "other.env")
 	if err := os.MkdirAll(project, 0o755); err != nil {

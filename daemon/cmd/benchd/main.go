@@ -164,7 +164,7 @@ func run(port int, log *slog.Logger) error {
 	defer sup.StopAll() // children die before the registry closes (LIFO)
 	cdy := &caddy.Caddy{Root: root, Bin: binaries, Sup: sup, Log: log}
 	pools := &phppool.Pools{Root: root, Bin: binaries, Sup: sup, Log: log}
-	siteMgr := &sites.Manager{Reg: reg, Router: cdy, Pools: pools, Log: log}
+	siteMgr := &sites.Manager{Reg: reg, Router: cdy, Pools: pools, Log: log, InstalledPHP: pools.Installed}
 	if err := siteMgr.NormalizePHP(func(v string) (string, bool) { return binaries.Channel("php", v) }); err != nil {
 		log.Warn("storing PHP versions by channel failed; older full-version values stay", "err", err)
 	}
@@ -224,6 +224,27 @@ func run(port int, log *slog.Logger) error {
 		srv.Publish(api.Event{Type: "download", Download: &p})
 		taskReg.Progress(p)
 	}
+	// life ends at shutdown. Background work that uses the registry runs
+	// under it through work, and shutdown waits for that work.
+	work := &lifeWork{}
+	defer work.Stop() // runs after endLife and before the registry closes
+	life, endLife := context.WithCancel(context.Background())
+	defer endLife()
+	// Every install (Runtimes page, CLI, New Laravel app) lands here. A new
+	// PHP can become the default (first install wins) and serve sites that
+	// had none; Apply saves the default and re-serves them. In the
+	// background, so the install task ends at once: Apply can wait on the
+	// sites lock or a Caddy download.
+	binaries.OnInstalled = func(b binman.Build) {
+		if b.Name != "php" {
+			return
+		}
+		work.Go(func() {
+			if _, err := siteMgr.Apply(life); err != nil {
+				log.Warn("serving sites after a PHP install failed", "version", b.Version, "err", err)
+			}
+		})
+	}
 	siteMgr.OnChange = func(list []api.Site) {
 		srv.Publish(api.Event{Type: "sites", Sites: list})
 	}
@@ -246,15 +267,15 @@ func run(port int, log *slog.Logger) error {
 	// Restore sites from the registry (exit criterion: daemon restart
 	// brings every site back with no manual steps). Async: a first-boot
 	// Caddy download must not block the API from coming up.
-	go func() {
+	work.Go(func() {
 		// Generous: downloads now stop when their caller's ctx ends, and a
 		// first-boot Caddy download on a slow link must not be cut short.
-		rctx, rcancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		rctx, rcancel := context.WithTimeout(life, 30*time.Minute)
 		defer rcancel()
 		if _, err := siteMgr.Apply(rctx); err != nil {
 			log.Error("restoring sites failed", "err", err)
 		}
-	}()
+	})
 	// Live mail events for the GUI's inbox, whenever Mailpit runs.
 	relayCtx, stopRelay := context.WithCancel(context.Background())
 	defer stopRelay()
@@ -281,6 +302,10 @@ func run(port int, log *slog.Logger) error {
 	case err := <-serveErr:
 		return fmt.Errorf("api server: %w", err)
 	}
+
+	// Background Applies end before the processes and registry they use.
+	endLife()
+	work.Stop()
 
 	// Children first, while the API still answers: `bench stop` polls
 	// until the API is gone, so it must not vanish while databases are

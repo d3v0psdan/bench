@@ -14,6 +14,7 @@ import (
 	"github.com/d3v0psdan/bench/daemon/internal/api"
 	"github.com/d3v0psdan/bench/daemon/internal/paths"
 	"github.com/d3v0psdan/bench/daemon/internal/updates"
+	"github.com/d3v0psdan/bench/daemon/internal/version"
 )
 
 // Settings for the update check (PLAN.md §4: on by default, one request a
@@ -123,7 +124,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
 	}
 	info.Enabled = enabled
 	info.Current = s.Version
-	info.Newer = info.Latest != "" && updates.Newer(info.Latest, s.Version)
+	info.Newer = info.Latest != "" && version.Newer(info.Latest, s.Version)
 	writeJSON(w, info)
 }
 

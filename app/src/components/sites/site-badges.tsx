@@ -38,8 +38,14 @@ export function SitePhpLabel({
         className,
       )}
     >
-      PHP {php.channel ?? "none"}
-      {missing ? " · not installed" : site.php_pinned ? " · pinned" : ""}
+      {php.channel ? (
+        <>
+          PHP {php.channel}
+          {missing ? " · not installed" : site.php_pinned ? " · pinned" : ""}
+        </>
+      ) : (
+        "PHP isn't installed"
+      )}
     </span>
   );
 }

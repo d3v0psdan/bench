@@ -95,6 +95,18 @@ func (p *Pools) CLI(channel string) (Command, error) {
 	return cmd, nil
 }
 
+// Installed lists the catalog channels whose build is installed, the
+// same check Ensure and CLI make.
+func (p *Pools) Installed() []string {
+	var out []string
+	for _, b := range p.Bin.Channels("php") {
+		if p.Bin.IsInstalled("php", b.Version) {
+			out = append(out, b.Channel)
+		}
+	}
+	return out
+}
+
 // Remove stops a channel's pool, if running, and uninstalls its build.
 func (p *Pools) Remove(channel string) error {
 	b, err := p.Bin.Resolve("php", channel)

@@ -46,6 +46,9 @@ type Manager struct {
 	// OnProgress, if set, receives throttled progress updates (feeds the
 	// WS event stream). Called from installing goroutines; must not block.
 	OnProgress func(Progress)
+	// OnInstalled, if set, runs once after a build is installed, before
+	// Install returns to the callers waiting on it; must not block.
+	OnInstalled func(Build)
 
 	client   *http.Client
 	mu       sync.Mutex
@@ -219,6 +222,9 @@ func (m *Manager) run(ctx context.Context, key string, f *flight, b Build) {
 		delete(m.inflight, key)
 	}
 	m.mu.Unlock()
+	if f.err == nil && m.OnInstalled != nil {
+		m.OnInstalled(b)
+	}
 	f.cancel()
 	close(f.done)
 }

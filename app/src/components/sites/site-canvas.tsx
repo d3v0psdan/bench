@@ -14,7 +14,10 @@ import {
   LockSimpleIcon,
   TrayIcon,
 } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
 import { CheckAction, CheckSteps } from "@/components/health";
 import { InstallButton } from "@/components/php-pane";
 import { CHECK_LABELS, CHECK_TONES, StatusDot } from "@/components/page";
@@ -26,11 +29,12 @@ import { useDoctor } from "@/hooks/use-doctor";
 import { useRoute } from "@/hooks/route";
 import { api, type Check, type Service, type Site } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { withTimeout } from "@/lib/async";
-import { sitePhp } from "@/lib/php";
+import { errorMessage, withTimeout } from "@/lib/async";
+import { sitePhp, sitePhpProblem, type SitePhpProblem } from "@/lib/php";
 import { MASK, usePrivacy } from "@/lib/privacy";
 
 const MAIL_COUNT_TIMEOUT_MS = 10_000;
+const SITE_TIMEOUT_MS = 60_000;
 
 /** SiteCanvas: the request path drawn as a canvas, network into runtime
  *  into the shared services. */
@@ -41,6 +45,7 @@ export function SiteCanvas({ site }: { site: Site }) {
   const [createOpen, setCreateOpen] = useState(false);
   const privacy = usePrivacy();
   const php = sitePhp(site, defaultPhp, binaries);
+  const phpProblem = sitePhpProblem(site, defaultPhp, binaries);
   const loading = doctor.checks === null && !doctor.error;
   const envPorts = site.env_ports ?? [];
   const used = (services ?? []).filter((s) => envPorts.includes(s.port));
@@ -104,14 +109,7 @@ export function SiteCanvas({ site }: { site: Site }) {
                 <span className="text-[13px]">{status?.os === "windows" ? "php-cgi" : "php-fpm"}</span>
               </ResourceRow>
             </ResourceCard>
-            {php.installed === false && php.build ? (
-              <div className="rounded-lg bg-card p-3 shadow-card">
-                <p className="mb-2 text-[13px] text-destructive">
-                  PHP {php.channel} isn't installed, so this site can't run.
-                </p>
-                <InstallButton build={php.build} />
-              </div>
-            ) : null}
+            {phpProblem ? <PhpFixCard site={site} problem={phpProblem} /> : null}
           </CanvasGroup>
         )}
 
@@ -359,4 +357,57 @@ function CheckDot({ check, loading }: { check?: Check; loading: boolean }) {
   }
   if (!check) return <StatusDot tone="neutral">Unknown</StatusDot>;
   return <StatusDot tone={CHECK_TONES[check.status]}>{CHECK_LABELS[check.status]}</StatusDot>;
+}
+
+/** PhpFixCard states a site's PHP problem and the one action that fixes it
+ *  (from sitePhpProblem). Unpinning is quick and reversible, so it acts at
+ *  once (ui-standard C2); installing asks first (C1). */
+function PhpFixCard({ site, problem }: { site: Site; problem: SitePhpProblem }) {
+  const { conn, setSites } = useDaemonContext();
+  const privacy = usePrivacy();
+  const [unpinning, setUnpinning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const unpin = async () => {
+    if (!conn || unpinning) return;
+    setUnpinning(true);
+    setError(null);
+    try {
+      setSites(
+        await withTimeout(
+          api<Site[]>(conn, "POST", "/api/sites/php", { name: site.name, version: "" }),
+          SITE_TIMEOUT_MS,
+          "Bench didn't answer in time",
+        ),
+      );
+      toast.success(`${privacy.host(site.host)} follows the default PHP`);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setUnpinning(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg bg-card p-3 shadow-card">
+      <p className={cn("text-[13px] text-destructive", problem.fix && "mb-2")}>{problem.text}</p>
+      {problem.fix?.kind === "install" ? (
+        <InstallButton build={problem.fix.build} />
+      ) : problem.fix?.kind === "unpin" ? (
+        <Button variant="outline" size="sm" onClick={() => void unpin()} disabled={unpinning || !conn}>
+          {unpinning ? (
+            <Spinner data-icon="inline-start" className="motion-reduce:animate-none" />
+          ) : (
+            <PushPinIcon data-icon="inline-start" />
+          )}
+          Use the default PHP
+        </Button>
+      ) : null}
+      {error ? (
+        <p role="alert" className="mt-2 text-xs break-words text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
 }

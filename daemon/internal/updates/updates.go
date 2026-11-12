@@ -1,6 +1,6 @@
 // Package updates asks GitHub whether a newer Bench release exists. It
 // reads the latest published release only (drafts and prereleases don't
-// count) and compares versions; nothing is downloaded or installed.
+// count); nothing is downloaded or installed.
 package updates
 
 import (
@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -54,27 +53,4 @@ func Latest(ctx context.Context, client *http.Client, url string) (Release, erro
 		return Release{}, fmt.Errorf("reading GitHub's answer: %w", err)
 	}
 	return Release{Version: strings.TrimPrefix(body.TagName, "v"), URL: body.HTMLURL, PublishedAt: body.PublishedAt}, nil
-}
-
-// Newer reports whether version a is newer than b ("0.2.0" > "0.1.3").
-// A prerelease ("0.1.0-dev") is older than its release ("0.1.0").
-func Newer(a, b string) bool {
-	an, ap := parse(a)
-	bn, bp := parse(b)
-	for i := range an {
-		if an[i] != bn[i] {
-			return an[i] > bn[i]
-		}
-	}
-	return ap == "" && bp != ""
-}
-
-func parse(v string) ([3]int, string) {
-	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
-	core, pre, _ := strings.Cut(v, "-")
-	var n [3]int
-	for i, part := range strings.SplitN(core, ".", 3) {
-		n[i], _ = strconv.Atoi(part)
-	}
-	return n, pre
 }

@@ -100,3 +100,24 @@ func TestParseModulesListsEachModuleOnce(t *testing.T) {
 		t.Fatalf("parseModules = %v, want %v (headings skipped, OPcache listed once)", got, want)
 	}
 }
+
+func TestInstalledListsTheCatalogChannelsWhoseBuildIsOnDisk(t *testing.T) {
+	root := t.TempDir()
+	build := func(channel, version string) binman.Build {
+		return binman.Build{Name: "php", Channel: channel, Version: version, OS: runtime.GOOS, Arch: runtime.GOARCH}
+	}
+	bin := &binman.Manager{Root: root, Manifests: map[string]binman.Manifest{
+		"php": {Schema: 1, Name: "php", Builds: []binman.Build{build("8.4", "8.4.1"), build("8.5", "8.5.2")}},
+	}}
+	// 8.5's build is installed; 8.4 only has an older build the catalog no longer carries.
+	for _, v := range []string{"8.5.2", "8.4.0"} {
+		if err := os.MkdirAll(bin.Dir("php", v), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got := (&Pools{Root: root, Bin: bin}).Installed()
+	if !slices.Equal(got, []string{"8.5"}) {
+		t.Fatalf("Installed = %v, want [8.5]", got)
+	}
+}

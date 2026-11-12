@@ -34,6 +34,7 @@ import { useRoute } from "@/hooks/route";
 import { api, formatBytes, type BinaryInfo, type Site, type Task } from "@/lib/api";
 import { DEFAULT_TIMEOUT_MS, errorMessage, withTimeout } from "@/lib/async";
 import { revealPath } from "@/lib/open";
+import { phpSetup } from "@/lib/php";
 import { usePrivacy } from "@/lib/privacy";
 
 // An install runs as a daemon task the user can watch and cancel in
@@ -47,10 +48,11 @@ const UNINSTALL_TIMEOUT_MS = 60_000;
  *  cancellable task; picking the global default is instant and reversible;
  *  each version opens a detail sheet (ui-standard N1). */
 export function PhpPane() {
-  const { binaries, defaultPhp, tasks, loadError, reloadData } = useDaemonContext();
+  const { binaries, tasks, loadError, reloadData } = useDaemonContext();
   const [openChannel, setOpenChannel] = useState<string | undefined>();
   const php = (binaries ?? []).filter((b) => b.name === "php");
-  const missingDefault = php.find((b) => (b.channel === defaultPhp || b.version === defaultPhp) && !b.installed);
+  const setup = phpSetup(binaries);
+  const offer = setup.installed === false ? setup.latest : undefined;
 
   return (
     <>
@@ -61,15 +63,15 @@ export function PhpPane() {
         <Skeleton className="h-56 w-full rounded-xl" aria-busy />
       ) : (
         <div className="flex flex-col gap-6">
-          {missingDefault && !runningInstall(tasks, missingDefault) ? (
+          {offer && !runningInstall(tasks, offer) ? (
             <Alert variant="warning">
               <WarningCircleIcon />
-              <AlertTitle>PHP {missingDefault.channel} isn't installed</AlertTitle>
+              <AlertTitle>PHP isn't installed</AlertTitle>
               <AlertDescription className="text-foreground">
-                It's the default, so sites without a pinned version can't run until it is.
+                Sites can't run until it is. The latest is PHP {offer.channel}.
               </AlertDescription>
               <AlertAction>
-                <InstallButton build={missingDefault} size="sm" />
+                <InstallButton build={offer} size="sm" />
               </AlertAction>
             </Alert>
           ) : null}
@@ -517,10 +519,12 @@ function PhpSheetBody({ build }: { build: BinaryInfo }) {
 /** InstallButton asks before downloading (ui-standard C1), then starts the
  *  install as a daemon task and lets Activity take over (C3, C4). */
 export function InstallButton({ build, size = "sm" }: { build: BinaryInfo; size?: "sm" | "default" }) {
-  const { conn, refreshBinaries, defaultPhp, setDefaultPhp, setSites } = useDaemonContext();
+  const { conn, binaries, refreshBinaries, defaultPhp, setDefaultPhp, setSites } = useDaemonContext();
   const { navigate } = useRoute();
   const privacy = usePrivacy();
   const label = `PHP ${build.channel}`;
+  // The first PHP installed becomes the default on its own.
+  const becomesDefault = phpSetup(binaries).installed === false;
 
   // Runs from the finished-install toast, so its progress and outcome show
   // as a toast too (ui-standard F2).
@@ -553,7 +557,7 @@ export function InstallButton({ build, size = "sm" }: { build: BinaryInfo; size?
         // The next step: make it the default, or put it to use (C4).
         toast.success(`${label} installed`, {
           action:
-            defaultPhp !== build.channel
+            defaultPhp !== build.channel && !becomesDefault
               ? { label: "Make default", onClick: makeDefault }
               : { label: "Add site", onClick: () => navigate({ kind: "home", section: "sites" }) },
         });

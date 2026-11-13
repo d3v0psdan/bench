@@ -11,6 +11,7 @@ import {
   SparkleIcon,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
+import { ConfirmAction } from "@/components/confirm-action";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -275,23 +276,53 @@ function AddSiteDialog({
   };
 
   const title = kind === null ? "Add site" : (KINDS.find((k) => k.kind === kind)?.title ?? "Add site");
+  // Only the new-app flow has enough steps to need a progress bar.
+  const showProgress = steps.length > 2;
+  // Closing asks first once the current flow has answers to lose.
+  const hasAnswers =
+    kind === "new"
+      ? index > 1 || !!answers.name.trim() || dir !== projectsDir
+      : kind === "link"
+        ? !!linkPath || !!linkName
+        : kind === "proxy" && (!!proxyName || !!proxyTarget);
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  const requestClose = () => {
+    if (submitting) return;
+    if (hasAnswers) setConfirmingClose(true);
+    else onOpenChange(false);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !submitting && onOpenChange(o)}>
+    <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : requestClose())}>
       <DialogContent className="gap-5 sm:max-w-lg">
+        {/* Outside the form, so Enter in the confirm doesn't reach the form's key handler. */}
+        <ConfirmAction
+          open={confirmingClose}
+          onOpenChange={setConfirmingClose}
+          title="Discard this site?"
+          description="Your answers so far will be lost. Nothing has been created yet."
+          confirmLabel="Discard"
+          cancelLabel="Keep editing"
+          tone="destructive"
+          onConfirm={() => onOpenChange(false)}
+        />
         <form onSubmit={onSubmit} onKeyDown={onKeyDown} className="flex flex-col gap-5">
           <DialogHeader className="gap-3">
             <div className="flex items-center justify-between gap-3 pr-8">
               <DialogTitle>{title}</DialogTitle>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                Step {index + 1} of {steps.length}
-              </span>
+              {showProgress ? (
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  Step {index + 1} of {steps.length}
+                </span>
+              ) : null}
             </div>
-            <Progress
-              value={((index + 1) / steps.length) * 100}
-              aria-label={`Step ${index + 1} of ${steps.length}`}
-              className="h-1"
-            />
+            {showProgress ? (
+              <Progress
+                value={((index + 1) / steps.length) * 100}
+                aria-label={`Step ${index + 1} of ${steps.length}`}
+                className="h-1"
+              />
+            ) : null}
             <DialogDescription className="sr-only">Add a site to Bench, one question at a time.</DialogDescription>
           </DialogHeader>
 
@@ -344,7 +375,7 @@ function AddSiteDialog({
                 Back
               </Button>
             ) : null}
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            <Button type="button" variant="outline" onClick={requestClose} disabled={submitting}>
               Cancel
             </Button>
             {step !== "choose" ? (

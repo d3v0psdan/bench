@@ -50,7 +50,10 @@ const UNINSTALL_TIMEOUT_MS = 60_000;
 export function PhpPane() {
   const { binaries, tasks, loadError, reloadData } = useDaemonContext();
   const [openChannel, setOpenChannel] = useState<string | undefined>();
-  const php = (binaries ?? []).filter((b) => b.name === "php");
+  // Newest first.
+  const php = (binaries ?? [])
+    .filter((b) => b.name === "php")
+    .sort((a, b) => b.channel.localeCompare(a.channel, undefined, { numeric: true }));
   const setup = phpSetup(binaries);
   const offer = setup.installed === false ? setup.latest : undefined;
 

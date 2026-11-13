@@ -107,16 +107,22 @@ export function Choices<T extends string>({
       {options.map((o) => (
         <FieldLabel key={o.value || "none"} htmlFor={`choice-${o.value || "none"}`} className="cursor-pointer">
           <Field orientation="horizontal" data-disabled={o.disabled ? true : undefined}>
-            {o.media ? <span className="flex shrink-0 items-center">{o.media}</span> : null}
             <FieldContent>
-              <FieldTitle>{o.label}</FieldTitle>
+              {/* Logo and label share one row at least a logo tall, so descriptions line up across cards with and without a logo. */}
+              <FieldTitle className="min-h-7">
+                {o.media}
+                {o.label}
+              </FieldTitle>
               {o.disabled || o.description ? (
                 <FieldDescription className={cn("text-xs", o.disabled && "text-destructive")}>
                   {o.disabled ?? o.description}
                 </FieldDescription>
               ) : null}
             </FieldContent>
-            <RadioGroupItem value={o.value} id={`choice-${o.value || "none"}`} disabled={!!o.disabled} />
+            {/* As tall as the title row, so the radio centers on the label. */}
+            <span className="flex h-7 shrink-0 items-center">
+              <RadioGroupItem value={o.value} id={`choice-${o.value || "none"}`} disabled={!!o.disabled} />
+            </span>
           </Field>
         </FieldLabel>
       ))}

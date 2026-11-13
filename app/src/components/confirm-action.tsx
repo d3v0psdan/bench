@@ -42,6 +42,7 @@ export function ConfirmAction({
   children,
   confirmLabel,
   confirmIcon,
+  cancelLabel = "Cancel",
   confirmText,
   confirmTextHint,
   tone = "default",
@@ -59,6 +60,8 @@ export function ConfirmAction({
   /** A specific verb: "Install PHP 8.4", "Delete mysql". Never "OK". */
   confirmLabel: string;
   confirmIcon?: ReactNode;
+  /** The way out, when "Cancel" would be ambiguous (the action itself cancels something). */
+  cancelLabel?: string;
   /** Text to retype before confirming, e.g. the site's host. */
   confirmText?: string;
   /** Names confirmText without printing it ("the site's name"), for text
@@ -163,7 +166,7 @@ export function ConfirmAction({
           </p>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={busy}>{cancelLabel}</AlertDialogCancel>
           {/* Labels can carry a folder or service name: the button shrinks and truncates so Cancel stays whole. */}
           <AlertDialogAction
             variant={tone === "destructive" ? "destructive-solid" : "default"}
